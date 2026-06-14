@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<title>GasOjek</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-tap-highlight-color:transparent}
+  body{background:#0D1117;background-image:radial-gradient(circle at 50% -10%,rgba(57,211,83,.13),transparent 45%);font-family:'Segoe UI',system-ui,sans-serif;color:#E6EDF3;min-height:100vh;-webkit-font-smoothing:antialiased}
+  input,select,textarea{font-family:inherit}
+  ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-thumb{background:#30363D;border-radius:4px}
+  .screen{display:none !important} .screen.active{animation:fadeIn .35s ease}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes popIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;padding:12px}
+  .modal-overlay.open{display:flex}
+  .modal-box{background:#161B22;border-radius:16px;width:100%;max-width:440px;border:1px solid #30363D;max-height:92vh;overflow-y:auto;animation:popIn .2s ease;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+  .modal-header{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid #30363D;position:sticky;top:0;background:#161B22;z-index:1}
+  .modal-body{padding:18px}
+  .topbar{background:rgba(22,27,34,.92);backdrop-filter:blur(8px);border-bottom:1px solid #30363D;padding:13px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50}
+  .page-content{padding:16px 14px;max-width:520px;margin:0 auto;padding-bottom:60px}
+  .card{background:#1C2128;border:1px solid #30363D;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 1px 0 rgba(255,255,255,.02) inset}
+  .badge{padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;display:inline-block}
+  .btn{border:none;border-radius:10px;font-weight:700;cursor:pointer;padding:11px 18px;font-size:14px;transition:opacity .15s,transform .1s;display:inline-block}
+  .btn:active{opacity:.75;transform:scale(.98)}
+  .btn-primary{background:linear-gradient(135deg,#46e06a,#2bb84a);color:#04220c;box-shadow:0 4px 14px rgba(57,211,83,.25)}
+  .btn-ghost{background:transparent;color:#39D353;border:1px solid #39D353}
+  .btn-danger{background:#F85149;color:#fff}
+  .btn-warn{background:#F0A500;color:#000}
+  .btn-secondary{background:#1C2128;color:#E6EDF3;border:1px solid #30363D}
+  .btn-sm{padding:6px 13px;font-size:13px}
+  .btn-block{width:100%;display:block;text-align:center}
+  .input-label{color:#8B949E;font-size:12px;margin-bottom:4px;font-weight:600}
+  .input-field{width:100%;background:#0D1117;border:1px solid #30363D;border-radius:10px;padding:11px 13px;color:#E6EDF3;font-size:14px;outline:none;margin-bottom:12px;transition:border-color .15s,box-shadow .15s}
+  .input-field:focus{border-color:#39D353;box-shadow:0 0 0 3px rgba(57,211,83,.12)}
+  .input-readonly{background:#161B22;color:#8B949E}
+  select.input-field option{background:#161B22}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  .stat-box{background:#1C2128;border:1px solid #30363D;border-radius:12px;padding:12px;text-align:center}
+  .stat-val{color:#39D353;font-weight:800;font-size:20px}
+  .stat-lbl{color:#8B949E;font-size:11px}
+  .tab-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+  .tab-btn{flex:1;min-width:0}
+  .chat-box{display:flex;flex-direction:column;height:300px}
+  .chat-messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px}
+  .chat-bubble{border-radius:14px;padding:8px 12px;max-width:78%}
+  .chat-bubble-mine{background:#1A4D2A;border:1px solid #39D353;align-self:flex-end;border-bottom-right-radius:4px}
+  .chat-bubble-other{background:#1C2128;border:1px solid #30363D;align-self:flex-start;border-bottom-left-radius:4px}
+  .chat-sender{font-size:10px;color:#8B949E;margin-bottom:2px}
+  .chat-text{color:#E6EDF3;font-size:14px}
+  .chat-time{font-size:10px;color:#8B949E;text-align:right;margin-top:2px}
+  .chat-input-row{display:flex;gap:8px;margin-top:8px}
+  .status-track{display:flex;align-items:center;margin:8px 0}
+  .status-step{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;border:2px solid #30363D;background:#1C2128;transition:all .2s}
+  .status-step.done{border-color:#39D353;background:#1A4D2A;box-shadow:0 0 0 3px rgba(57,211,83,.12)}
+  .status-line{flex:1;height:2px;background:#30363D;margin:0 1px}
+  .status-line.done{background:#39D353}
+  .stop-box{background:#161B22;border:1px solid #30363D;border-radius:12px;padding:12px;margin-bottom:10px}
+  .ongkir-box{background:linear-gradient(135deg,#1A4D2A,#163b22);border:1px solid #39D353;border-radius:12px;padding:12px 14px;margin-bottom:12px}
+  .warning-box{background:#3D2E00;border:1px solid #F0A500;border-radius:12px;padding:10px 14px;margin-bottom:12px;color:#F0A500;font-size:13px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
+  .watermark{position:fixed;bottom:8px;right:10px;font-size:10px;color:#8B949E;opacity:.4;font-style:italic;pointer-events:none;z-index:9}
+  .landing-btn{background:#1C2128;border:1px solid #30363D;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;color:#E6EDF3;font-weight:700;font-size:15px;width:100%;margin-bottom:10px;transition:border-color .2s,transform .1s,background .2s;text-align:left}
+  .landing-btn:active{transform:scale(.98);background:#21262d}
+  .landing-btn:hover{border-color:#39D353}
+  .landing-icon{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+  .landing-btn .chev{margin-left:auto;color:#8B949E;font-size:18px}
+  .landing-sub-label{display:block;color:#8B949E;font-size:11px;font-weight:500;margin-top:2px}
+  .muted{color:#8B949E}
+  .accent{color:#39D353}
+  .danger{color:#F85149}
+  .warn-color{color:#F0A500}
+  .flex-between{display:flex;justify-content:space-between;align-items:center}
+  .flex-center{display:flex;align-items:center}
+  .profile-row{display:flex;align-items:center;gap:10px}
+  .divider{height:1px;background:#30363D;margin:12px 0}
+  .section-title{font-weight:700;color:#E6EDF3;margin-bottom:8px;font-size:15px}
+  .empty-msg{color:#8B949E;text-align:center;padding:40px 16px;font-size:14px}
+  .info-row{color:#8B949E;font-size:13px;margin-bottom:3px}
+  .preview-brand{background:#161B22;border-radius:10px;padding:14px;margin-bottom:12px;text-align:center}
+  .tarif-preview{background:#161B22;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#8B949E}
+  #track-map{width:100%;height:280px;border-radius:12px;background:#161B22}
+  .track-status{font-size:13px;color:#8B949E;margin-top:8px;text-align:center}
+  .leaflet-pulse-icon{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#39D353;border:3px solid #0D1117;box-shadow:0 0 0 0 rgba(57,211,83,.6);animation:pulseDot 1.6s infinite}
+  @keyframes pulseDot{0%{box-shadow:0 0 0 0 rgba(57,211,83,.6)}70%{box-shadow:0 0 0 12px rgba(57,211,83,0)}100%{box-shadow:0 0 0 0 rgba(57,211,83,0)}}
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<!-- WATERMARK -->
+<div class="watermark">Developed by D.D Candra</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LANDING SCREEN
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-landing" class="screen active" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px">
+  <div id="landing-logo" style="font-size:60px;margin-bottom:10px;width:108px;height:108px;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#1A4D2A,#1C2128);border:1px solid #39D353;border-radius:28px;box-shadow:0 8px 30px rgba(57,211,83,.18)">🛵</div>
+  <h1 id="landing-name" style="font-size:32px;font-weight:900;letter-spacing:-1px;margin:18px 0 6px;background:linear-gradient(135deg,#E6EDF3,#39D353);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">GasOjek</h1>
+  <p id="landing-sub" style="color:#8B949E;font-size:14px;margin-bottom:14px;text-align:center;max-width:280px">Antar cepat, harga jelas, aman terpercaya</p>
+  <div style="display:flex;gap:6px;margin-bottom:36px;flex-wrap:wrap;justify-content:center">
+    <span class="badge" style="background:#1A4D2A;color:#39D353">⚡ Cepat</span>
+    <span class="badge" style="background:#0D2A4A;color:#58A6FF">💬 Live Chat</span>
+    <span class="badge" style="background:#3D2E00;color:#F0A500">💰 Tarif Jelas</span>
+  </div>
+  <div style="width:100%;max-width:320px">
+    <button class="landing-btn" onclick="goCustomer()">
+      <span class="landing-icon" style="background:#1A4D2A;border:1px solid #39D353">👤</span>
+      <span>Pesan sebagai Customer<span class="landing-sub-label">Buat orderan makanan & antar jemput</span></span>
+      <span class="chev">›</span>
+    </button>
+    <button class="landing-btn" onclick="goLogin('driver')">
+      <span class="landing-icon" style="background:#0D2A4A;border:1px solid #58A6FF">🧑‍✈️</span>
+      <span>Masuk sebagai Driver<span class="landing-sub-label">Lihat & terima orderan tersedia</span></span>
+      <span class="chev">›</span>
+    </button>
+    <button class="landing-btn" onclick="goLogin('admin')">
+      <span class="landing-icon" style="background:#3D2E00;border:1px solid #F0A500">🛡️</span>
+      <span>Masuk sebagai Admin<span class="landing-sub-label">Kelola order, driver & pengaturan</span></span>
+      <span class="chev">›</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-login" class="screen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px;background:#161B22;border-radius:18px;border:1px solid #30363D;padding:28px;box-shadow:0 10px 40px rgba(0,0,0,.4)">
+    <div style="text-align:center;margin-bottom:22px">
+      <div id="login-icon" style="font-size:36px;width:72px;height:72px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;background:#1C2128;border:1px solid #30363D;border-radius:18px">🛡️</div>
+      <div id="login-title" style="font-weight:800;font-size:18px;margin:6px 0">Login Admin</div>
+      <div id="login-appname" style="color:#8B949E;font-size:12px">GasOjek</div>
+    </div>
+    <div class="input-label">Login sebagai</div>
+    <select id="login-role" class="input-field" onchange="switchLoginRole()">
+      <option value="admin">Admin</option>
+      <option value="driver">Driver</option>
+    </select>
+    <div class="input-label">Username</div>
+    <input id="login-user" class="input-field" placeholder="Masukkan username" autocomplete="off"/>
+    <div class="input-label">Password</div>
+    <input id="login-pass" class="input-field" type="password" placeholder="Masukkan password"/>
+    <div id="login-err" style="display:none;background:#4A0D0D;color:#F85149;border-radius:8px;padding:8px 12px;font-size:13px;margin-bottom:10px"></div>
+    <button class="btn btn-primary btn-block" style="margin-bottom:10px" onclick="doLogin()">Masuk</button>
+    <button class="btn btn-ghost btn-block" onclick="showScreen('landing')">← Kembali</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CUSTOMER SCREEN
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-customer" class="screen">
+  <div class="topbar">
+    <button onclick="showScreen('landing')" style="background:none;border:none;color:#39D353;cursor:pointer;font-size:18px">←</button>
+    <span id="c-topbar-logo" style="font-size:20px">🛵</span>
+    <span id="c-topbar-name" style="font-weight:800;font-size:16px;flex:1">GasOjek — Customer</span>
+    <button onclick="openModal('modal-cust-profile')" style="background:none;border:none;cursor:pointer;font-size:26px">👤</button>
+  </div>
+  <div class="page-content">
+    <div id="c-warn-profile" class="warning-box">
+      ⚠️ Lengkapi profil kamu sebelum memesan.
+      <button onclick="openModal('modal-cust-profile')" style="background:none;border:none;color:#F0A500;font-weight:700;cursor:pointer;text-decoration:underline">Isi Sekarang</button>
+    </div>
+    <div id="c-profile-card" class="card" style="display:none;margin-bottom:12px">
+      <div class="profile-row">
+        <span style="font-size:36px">👤</span>
+        <div>
+          <div id="c-pname" style="font-weight:700"></div>
+          <div id="c-pphone" class="muted" style="font-size:13px"></div>
+          <div id="c-paddress" class="muted" style="font-size:12px"></div>
+        </div>
+      </div>
+    </div>
+    <div class="tab-row">
+      <button class="btn btn-primary btn-sm tab-btn" id="ctab-order" onclick="cSetTab('order')">📝 Pesan</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="ctab-history" onclick="cSetTab('history')">📦 Riwayat (<span id="c-hist-count">0</span>)</button>
+    </div>
+    <!-- ORDER FORM -->
+    <div id="c-tab-order">
+      <div class="card">
+        <div class="section-title">📝 Buat Orderan</div>
+        <div class="input-label">Jenis Layanan</div>
+        <select id="c-order-type" class="input-field" onchange="cUpdateOrderType()">
+          <option value="food">🍔 Pesan & Antar Makanan</option>
+          <option value="antar">🛵 Antar Jemput</option>
+        </select>
+        <div id="c-stops-container"></div>
+        <div id="c-add-stop-wrap">
+          <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:12px" onclick="cAddStop()">+ Tambah Tempat (maks 3)</button>
+        </div>
+        <div id="c-jemput-wrap" style="display:none">
+          <div class="input-label">📍 Titik Jemput</div>
+          <input id="c-jemput" class="input-field" placeholder="Alamat penjemputan"/>
+        </div>
+        <div class="input-label">🏠 Alamat Tujuan *</div>
+        <input id="c-alamat-tujuan" class="input-field" placeholder="Alamat lengkap tujuan"/>
+        <div class="input-label">📏 Estimasi Jarak (km) *</div>
+        <input id="c-jarak" class="input-field" type="number" placeholder="Contoh: 5.5" oninput="cUpdateOngkir()"/>
+        <div class="input-label">📝 Catatan (opsional)</div>
+        <input id="c-catatan" class="input-field" placeholder="Instruksi khusus untuk driver"/>
+        <div id="c-ongkir-box" class="ongkir-box" style="display:none">
+          <div class="muted" style="font-size:11px">Estimasi Ongkir</div>
+          <div id="c-ongkir-val" style="color:#39D353;font-size:24px;font-weight:900">Rp 0</div>
+          <div id="c-ongkir-detail" class="muted" style="font-size:11px"></div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="cSubmitOrder()">🚀 Kirim Orderan</button>
+      </div>
+    </div>
+    <!-- HISTORY -->
+    <div id="c-tab-history" style="display:none">
+      <div id="c-history-list"><div class="empty-msg">Belum ada orderan</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     DRIVER SCREEN
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-driver" class="screen">
+  <div class="topbar">
+    <span id="d-topbar-logo" style="font-size:20px">🛵</span>
+    <span id="d-topbar-name" style="font-weight:800;font-size:14px;flex:1">GasOjek — Driver</span>
+    <button onclick="openModal('modal-driver-profile')" style="background:none;border:none;cursor:pointer;font-size:24px">🧑‍✈️</button>
+    <button onclick="doLogout()" style="background:none;border:none;color:#F85149;cursor:pointer;font-size:12px;font-weight:600;margin-left:6px">Keluar</button>
+  </div>
+  <div class="page-content">
+    <div class="grid-3" style="margin-bottom:14px" id="d-stats"></div>
+    <div class="tab-row">
+      <button class="btn btn-primary btn-sm tab-btn" id="dtab-available" onclick="dSetTab('available')">📬 Tersedia</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-active" onclick="dSetTab('active')">🛵 Aktif</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-history" onclick="dSetTab('history')">📋 Riwayat</button>
+    </div>
+    <div id="d-tab-available"><div class="empty-msg">Tidak ada orderan tersedia</div></div>
+    <div id="d-tab-active" style="display:none"><div class="empty-msg">Tidak ada orderan aktif</div></div>
+    <div id="d-tab-history" style="display:none"><div class="empty-msg">Belum ada riwayat</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ADMIN SCREEN
+═══════════════════════════════════════════════════════════ -->
+<div id="screen-admin" class="screen">
+  <div class="topbar">
+    <span id="a-topbar-logo" style="font-size:20px">🛵</span>
+    <span id="a-topbar-name" style="font-weight:800;font-size:16px;flex:1">Admin Panel</span>
+    <button onclick="doLogout()" style="background:none;border:none;color:#F85149;cursor:pointer;font-size:12px;font-weight:600">Keluar</button>
+  </div>
+  <div class="page-content">
+    <div class="stat-grid" id="a-stats"></div>
+    <div class="grid-4" style="margin-bottom:14px">
+      <button class="btn btn-primary btn-sm" id="atab-orders" onclick="aSetTab('orders')" style="font-size:11px;padding:7px 4px">📦 Order</button>
+      <button class="btn btn-ghost btn-sm" id="atab-drivers" onclick="aSetTab('drivers')" style="font-size:11px;padding:7px 4px">🧑‍✈️ Driver</button>
+      <button class="btn btn-ghost btn-sm" id="atab-customers" onclick="aSetTab('customers')" style="font-size:11px;padding:7px 4px">👤 Customer</button>
+      <button class="btn btn-ghost btn-sm" id="atab-settings" onclick="aSetTab('settings')" style="font-size:11px;padding:7px 4px">⚙️ Setting</button>
+    </div>
+    <div id="a-tab-orders"></div>
+    <div id="a-tab-drivers" style="display:none"></div>
+    <div id="a-tab-customers" style="display:none"></div>
+    <div id="a-tab-settings" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODALS
+═══════════════════════════════════════════════════════════ -->
+<!-- Customer Profile -->
+<div id="modal-cust-profile" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header"><span style="font-weight:700">Profil Saya</span><button onclick="closeModal('modal-cust-profile')" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <div class="input-label">Nama Lengkap *</div><input id="cp-name" class="input-field" placeholder="Nama kamu"/>
+      <div class="input-label">No. HP *</div><input id="cp-phone" class="input-field" placeholder="08xx-xxxx-xxxx"/>
+      <div class="input-label">Alamat</div><input id="cp-address" class="input-field" placeholder="Alamat lengkap"/>
+      <button class="btn btn-primary btn-block" onclick="cSaveProfile()">Simpan Profil</button>
+    </div>
+  </div>
+</div>
+
+<!-- Driver Profile -->
+<div id="modal-driver-profile" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header"><span style="font-weight:700">Profil Driver</span><button onclick="closeModal('modal-driver-profile')" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <div class="input-label">Nama</div><input id="dp-name" class="input-field"/>
+      <div class="input-label">No. HP</div><input id="dp-phone" class="input-field"/>
+      <div class="input-label">Kendaraan</div><input id="dp-vehicle" class="input-field"/>
+      <button class="btn btn-primary btn-block" onclick="dSaveProfile()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chat Modal -->
+<div id="modal-chat" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header"><span style="font-weight:700">💬 Chat</span><button onclick="closeModal('modal-chat')" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <div id="chat-tabs" class="tab-row" style="margin-bottom:12px"></div>
+      <div id="chat-peer-label" class="muted" style="font-size:12px;margin-bottom:6px"></div>
+      <div id="chat-messages" class="chat-messages" style="height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:6px"></div>
+      <div class="chat-input-row">
+        <input id="chat-input" class="input-field" style="margin:0;flex:1" placeholder="Ketik pesan…" onkeydown="if(event.key==='Enter')sendChat()"/>
+        <button class="btn btn-primary btn-sm" onclick="sendChat()">Kirim</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Customer Detail Modal (Admin) -->
+<div id="modal-cust-detail" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header"><span style="font-weight:700" id="cust-detail-title">Detail Customer</span><button onclick="closeModal('modal-cust-detail')" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body" id="cust-detail-body"></div>
+  </div>
+</div>
+
+<!-- Driver Detail Modal (Admin) -->
+<div id="modal-driver-detail" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header"><span style="font-weight:700" id="driver-detail-title">Statistik Driver</span><button onclick="closeModal('modal-driver-detail')" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body" id="driver-detail-body"></div>
+  </div>
+</div>
+
+<!-- Live Tracking Modal -->
+<div id="modal-track" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header"><span style="font-weight:700">🗺️ Lacak Driver Live</span><button onclick="closeTrackModal()" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-body">
+      <div id="track-map"></div>
+      <div class="track-status" id="track-status">Menunggu lokasi driver…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let branding = { logo:'🛵', logoType:'emoji', logoImage:null, appName:'GasOjek', subtitle:'Antar cepat, harga jelas, aman terpercaya' };
+let tarif = { basePerKm:3000, pickupFee:2000, multiStopFee:5000 };
+let drivers = [
+  {id:'D1',name:'Budi Santoso',phone:'0856-7890-1234',vehicle:'Honda Vario - B 4567 XY',rating:4.8,username:'budi',password:'budi123',active:true},
+  {id:'D2',name:'Riko Saputra',phone:'0821-1111-2222',vehicle:'Yamaha NMAX - D 1234 AB',rating:4.6,username:'riko',password:'riko456',active:true},
+];
+let orders = [];
+let chats = {}; // { orderId: { 'customer-driver':[], 'customer-admin':[] } }
+let session = null; // { role, id, name }
+
+// Customer local state
+let custProfile = { name:'', phone:'', address:'' };
+let custProfileFilled = false;
+let cStops = [{ namaResto:'', alamatResto:'', menu:'' }];
+let cTab = 'order';
+
+// Driver local state
+let dTab = 'available';
+
+// Admin local state
+let aTab = 'orders';
+let addingDriver = false;
+let sPendingLogo = { type:'emoji', image:null }; // working copy while editing branding logo in settings
+
+// Chat modal state
+let chatOrderId = null;
+let chatThread = 'customer-admin';
+let chatRole = 'customer'; // who is sending
+
+// ═══════════════════════════════════════════════════════════
+// FIREBASE REALTIME DATABASE
+// ═══════════════════════════════════════════════════════════
+// Order data (status, driver assignment, live driver location) is synced
+// through Firebase Realtime Database so Customer / Driver / Admin on
+// different devices all see the same data update live.
+//
+// NOTE: fill in `databaseURL` below with your project's Realtime Database
+// URL (Firebase Console → Build → Realtime Database → the URL shown at the
+// top, e.g. "https://driver-online-b9359-default-rtdb.asia-southeast1.firebasedatabase.app").
+const firebaseConfig = {
+  apiKey: "AIzaSyA0XOovQ6RZvJD2v7zCgQ2k9vnMCPlrSMc",
+  authDomain: "driver-online-b9359.firebaseapp.com",
+  databaseURL: "https://driver-online-b9359-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "driver-online-b9359",
+  storageBucket: "driver-online-b9359.firebasestorage.app",
+  messagingSenderId: "898706383395",
+  appId: "1:898706383395:web:6457b486ec667abc80c796"
+};
+let db=null, ordersRef=null;
+try{
+  if(typeof firebase!=='undefined'){
+    firebase.initializeApp(firebaseConfig);
+    db=firebase.database();
+    ordersRef=db.ref('orders');
+    // Local `orders` array mirrors the `orders/{id}` node in Realtime Database.
+    // Every create/update goes through fbSetOrder / fbUpdateOrder; this listener
+    // then refreshes the local cache + re-renders the active screen for everyone.
+    ordersRef.on('value', snap=>{
+      const val=snap.val()||{};
+      orders=Object.values(val).sort((a,b)=>b.id-a.id);
+      refreshActiveScreen();
+    }, err=>{
+      console.error('Firebase orders sync error:', err);
+    });
+  } else {
+    console.warn('Firebase SDK tidak termuat (cek koneksi internet) — berjalan dalam mode lokal saja.');
+  }
+}catch(e){
+  console.error('Firebase init error:', e);
+}
+
+// Falls back to a no-op when Firebase is unavailable, so the app keeps
+// working locally (single device/session) instead of crashing.
+function fbSetOrder(order){ if(ordersRef) return ordersRef.child(order.id).set(order); }
+function fbUpdateOrder(id, patch){ if(ordersRef) return ordersRef.child(id).update(patch); }
+
+// Re-render whichever screen is currently visible so live updates (status
+// changes, driver location, etc.) show up immediately on every device.
+function refreshActiveScreen(){
+  const active=document.querySelector('.screen.active');
+  if(!active) return;
+  if(active.id==='screen-customer'){
+    updateHistCount();
+    if(cTab==='history') renderCHistory();
+  } else if(active.id==='screen-driver'){
+    renderDriver();
+  } else if(active.id==='screen-admin'){
+    aRenderTab();
+  }
+  if(document.getElementById('modal-chat')?.classList.contains('open')) renderChatMessages();
+  if(trackingOrderId!=null) updateTrackMarker();
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+function nowTime(){ return new Date().toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}); }
+function nowDate(){ return new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
+function fmtRp(n){ return 'Rp '+Number(n).toLocaleString('id-ID'); }
+
+function calcOngkir(jarak, numStops){
+  const rate = jarak<=5 ? tarif.basePerKm : jarak<=15 ? tarif.basePerKm-500 : tarif.basePerKm-1000;
+  const extra = numStops>1 ? (numStops-1)*tarif.multiStopFee : 0;
+  return Math.round(jarak*rate + tarif.pickupFee + extra);
+}
+
+function badge(label, color){
+  const map={green:['#1A4D2A','#39D353'],yellow:['#3D2E00','#F0A500'],blue:['#0D2A4A','#58A6FF'],red:['#4A0D0D','#F85149'],gray:['#21262D','#8B949E'],purple:['#2D1A4A','#C678DD']};
+  const [bg,tc]= map[color]||map.gray;
+  return `<span class="badge" style="background:${bg};color:${tc}">${label}</span>`;
+}
+
+function statusTracker(status){
+  const steps=[{k:'pending',ic:'⏳'},{k:'accepted',ic:'✅'},{k:'progress',ic:'🛵'},{k:'done',ic:'🎉'}];
+  const idx=steps.findIndex(s=>s.k===status);
+  return '<div class="status-track">'+steps.map((s,i)=>{
+    const done=i<=idx;
+    const line=i<steps.length-1?`<div class="status-line ${i<idx?'done':''}"></div>`:'';
+    return `<div class="status-step ${done?'done':''}">${s.ic}</div>${line}`;
+  }).join('')+'</div>';
+}
+
+function statusBadge(status){
+  const map={pending:['⏳ Menunggu','gray'],accepted:['✅ Diterima','yellow'],progress:['🛵 On Progress','blue'],done:['🎉 Selesai','green'],rejected:['❌ Ditolak','red']};
+  const [l,c]=map[status]||['?','gray'];
+  return badge(l,c);
+}
+
+function getThread(orderId, key){ return ((chats[orderId]||{})[key]||[]); }
+function appendChat(orderId, key, msg){
+  if(!chats[orderId]) chats[orderId]={'customer-driver':[],'customer-admin':[]};
+  if(!chats[orderId][key]) chats[orderId][key]=[];
+  chats[orderId][key].push(msg);
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.remove('active');
+    s.style.setProperty('display','none','important');
+  });
+  const el=document.getElementById('screen-'+id);
+  if(el){
+    el.classList.add('active');
+    el.style.setProperty('display', el.dataset.disp||'block','important');
+    window.scrollTo(0,0);
+  }
+}
+
+function goCustomer(){ updateBrandingUI(); showScreen('customer'); renderCustomer(); }
+
+function goLogin(role){
+  document.getElementById('login-role').value=role;
+  switchLoginRole();
+  document.getElementById('login-user').value='';
+  document.getElementById('login-pass').value='';
+  document.getElementById('login-err').style.display='none';
+  updateBrandingUI();
+  showScreen('login');
+}
+
+function switchLoginRole(){
+  const role=document.getElementById('login-role').value;
+  document.getElementById('login-icon').textContent=role==='admin'?'🛡️':'🧑‍✈️';
+  document.getElementById('login-title').textContent='Login '+(role==='admin'?'Admin':'Driver');
+}
+
+function doLogin(){
+  const role=document.getElementById('login-role').value;
+  const user=document.getElementById('login-user').value.trim();
+  const pass=document.getElementById('login-pass').value;
+  const errEl=document.getElementById('login-err');
+  errEl.style.display='none';
+  if(role==='admin'){
+    if(user==='admin'&&pass==='admin123'){
+      session={role:'admin',id:'admin',name:'Admin'};
+      updateBrandingUI(); showScreen('admin'); renderAdmin();
+    } else { errEl.textContent='Username atau password salah.'; errEl.style.display='block'; }
+  } else {
+    const d=drivers.find(dr=>dr.username===user&&dr.password===pass&&dr.active);
+    if(d){ session={role:'driver',id:d.id,name:d.name}; updateBrandingUI(); showScreen('driver'); renderDriver(); }
+    else { errEl.textContent='Kredensial tidak valid atau akun tidak aktif.'; errEl.style.display='block'; }
+  }
+}
+
+function doLogout(){
+  if(session&&session.role==='driver'){
+    Object.keys(driverWatchers).forEach(oid=>stopLocationSharing(Number(oid)));
+  }
+  session=null;
+  showScreen('landing');
+}
+
+function renderLogo(el, opts){
+  if(!el) return;
+  if(branding.logoType==='image' && branding.logoImage){
+    const radius=opts.radius;
+    if(opts.fill){
+      el.innerHTML=`<img src="${branding.logoImage}" style="width:100%;height:100%;object-fit:cover;border-radius:${radius}px;display:block"/>`;
+    } else {
+      el.innerHTML=`<img src="${branding.logoImage}" style="width:${opts.size}px;height:${opts.size}px;object-fit:cover;border-radius:${radius}px;display:inline-block;vertical-align:middle"/>`;
+    }
+  } else {
+    el.innerHTML='';
+    el.textContent=branding.logo;
+  }
+}
+
+function updateBrandingUI(){
+  document.title=branding.appName;
+  renderLogo(document.getElementById('landing-logo'),{fill:true,radius:26});
+  ['c-topbar-logo','d-topbar-logo','a-topbar-logo'].forEach(id=>{
+    renderLogo(document.getElementById(id),{size:24,radius:6});
+  });
+  ['landing-name','c-topbar-name'].forEach(id=>{
+    const el=document.getElementById(id); if(el&&id==='landing-name') el.textContent=branding.appName;
+    if(el&&id==='c-topbar-name') el.textContent=branding.appName+' — Customer';
+  });
+  const sub=document.getElementById('landing-sub'); if(sub) sub.textContent=branding.subtitle;
+  const ln=document.getElementById('login-appname'); if(ln) ln.textContent=branding.appName;
+  const an=document.getElementById('a-topbar-name'); if(an) an.textContent='Admin Panel — '+branding.appName;
+  const dn=document.getElementById('d-topbar-name'); if(dn) dn.textContent=branding.appName+' — Driver';
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODAL
+// ═══════════════════════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el=>{
+  el.addEventListener('click',function(e){ if(e.target===el) el.classList.remove('open'); });
+});
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOMER SCREEN
+// ═══════════════════════════════════════════════════════════
+function renderCustomer(){
+  const warn=document.getElementById('c-warn-profile');
+  const card=document.getElementById('c-profile-card');
+  if(custProfileFilled){
+    warn.style.display='none'; card.style.display='block';
+    document.getElementById('c-pname').textContent=custProfile.name;
+    document.getElementById('c-pphone').textContent=custProfile.phone;
+    document.getElementById('c-paddress').textContent=custProfile.address?'📍 '+custProfile.address:'';
+  } else { warn.style.display='block'; card.style.display='none'; }
+  renderCStops();
+  updateHistCount();
+  if(cTab==='history') renderCHistory();
+}
+
+function cSetTab(tab){
+  cTab=tab;
+  document.getElementById('c-tab-order').style.display=tab==='order'?'block':'none';
+  document.getElementById('c-tab-history').style.display=tab==='history'?'block':'none';
+  document.getElementById('ctab-order').className='btn btn-sm tab-btn '+(tab==='order'?'btn-primary':'btn-ghost');
+  document.getElementById('ctab-history').className='btn btn-sm tab-btn '+(tab==='history'?'btn-primary':'btn-ghost');
+  if(tab==='history') renderCHistory();
+}
+
+function cUpdateOrderType(){
+  const type=document.getElementById('c-order-type').value;
+  document.getElementById('c-stops-container').style.display=type==='food'?'block':'none';
+  document.getElementById('c-add-stop-wrap').style.display=type==='food'?'block':'none';
+  document.getElementById('c-jemput-wrap').style.display=type==='antar'?'block':'none';
+  cUpdateOngkir();
+}
+
+function renderCStops(){
+  const c=document.getElementById('c-stops-container');
+  c.innerHTML=cStops.map((s,i)=>`
+    <div class="stop-box">
+      <div class="flex-between" style="margin-bottom:8px">
+        ${badge('Tempat '+(i+1),'blue')}
+        ${cStops.length>1?`<button onclick="cRemoveStop(${i})" style="background:none;border:none;color:#F85149;cursor:pointer;font-size:18px">✕</button>`:''}
+      </div>
+      <div class="input-label">Nama Restoran / Warung *</div>
+      <input class="input-field" value="${s.namaResto}" oninput="cStops[${i}].namaResto=this.value" placeholder="Nama tempat makan"/>
+      <div class="input-label">Alamat Lengkap *</div>
+      <input class="input-field" value="${s.alamatResto}" oninput="cStops[${i}].alamatResto=this.value" placeholder="Alamat lengkap"/>
+      <div class="input-label">Menu yang Dipesan</div>
+      <input class="input-field" value="${s.menu}" oninput="cStops[${i}].menu=this.value" placeholder="Nama menu"/>
+    </div>`).join('');
+  document.getElementById('c-add-stop-wrap').style.display=cStops.length<3?'block':'none';
+}
+
+function cAddStop(){ if(cStops.length<3){ cStops.push({namaResto:'',alamatResto:'',menu:''}); renderCStops(); cUpdateOngkir(); } }
+function cRemoveStop(i){ if(cStops.length>1){ cStops.splice(i,1); renderCStops(); cUpdateOngkir(); } }
+
+function cUpdateOngkir(){
+  const type=document.getElementById('c-order-type').value;
+  const jarak=parseFloat(document.getElementById('c-jarak').value)||0;
+  const numStops=type==='food'?cStops.length:1;
+  const box=document.getElementById('c-ongkir-box');
+  if(jarak>0){
+    const ongkir=calcOngkir(jarak,numStops);
+    document.getElementById('c-ongkir-val').textContent=fmtRp(ongkir);
+    document.getElementById('c-ongkir-detail').textContent=jarak+' km'+(numStops>1?' + '+(numStops-1)+' stop tambahan':'');
+    box.style.display='block';
+  } else { box.style.display='none'; }
+}
+
+function cSaveProfile(){
+  const name=document.getElementById('cp-name').value.trim();
+  const phone=document.getElementById('cp-phone').value.trim();
+  const address=document.getElementById('cp-address').value.trim();
+  custProfile={name,phone,address};
+  custProfileFilled=!!(name&&phone);
+  closeModal('modal-cust-profile');
+  renderCustomer();
+}
+
+function openCustProfileModal(){
+  document.getElementById('cp-name').value=custProfile.name;
+  document.getElementById('cp-phone').value=custProfile.phone;
+  document.getElementById('cp-address').value=custProfile.address;
+  openModal('modal-cust-profile');
+}
+
+function cSubmitOrder(){
+  const type=document.getElementById('c-order-type').value;
+  if(!custProfileFilled) return alert('Lengkapi profil terlebih dahulu!');
+  const alamat=document.getElementById('c-alamat-tujuan').value.trim();
+  const jarak=parseFloat(document.getElementById('c-jarak').value)||0;
+  if(!alamat||jarak<=0) return alert('Lengkapi alamat tujuan dan estimasi jarak!');
+  if(type==='food'&&cStops.some(s=>!s.namaResto||!s.alamatResto)) return alert('Lengkapi detail semua tempat makan!');
+  const numStops=type==='food'?cStops.length:1;
+  const ongkir=calcOngkir(jarak,numStops);
+  const jemput=document.getElementById('c-jemput').value.trim();
+  const catatan=document.getElementById('c-catatan').value.trim();
+  const id=Date.now();
+  const order={
+    id, type, stops:[...cStops.map(s=>({...s}))],
+    alamatCustomer:alamat, jarak, catatan, ongkir,
+    customerName:custProfile.name, customerPhone:custProfile.phone,
+    customerAddress:custProfile.address,
+    jemput, status:'pending', createdAt:nowTime(), date:nowDate(), driver:null
+  };
+  orders.unshift(order);
+  fbSetOrder(order);
+  chats[id]={'customer-driver':[],'customer-admin':[]};
+  cStops=[{namaResto:'',alamatResto:'',menu:''}];
+  document.getElementById('c-alamat-tujuan').value='';
+  document.getElementById('c-jarak').value='';
+  document.getElementById('c-catatan').value='';
+  document.getElementById('c-ongkir-box').style.display='none';
+  renderCStops();
+  updateHistCount();
+  cSetTab('history');
+  alert('✅ Orderan terkirim! Tunggu konfirmasi admin.');
+}
+
+function updateHistCount(){
+  const my=orders.filter(o=>o.customerPhone===custProfile.phone&&custProfile.phone);
+  document.getElementById('c-hist-count').textContent=my.length;
+}
+
+function renderCHistory(){
+  const my=orders.filter(o=>o.customerPhone===custProfile.phone&&custProfile.phone);
+  const el=document.getElementById('c-history-list');
+  if(my.length===0){ el.innerHTML='<div class="empty-msg">Belum ada orderan</div>'; return; }
+  el.innerHTML=my.map(o=>{
+    const hasDriver=!!o.driver;
+    const chatBtn=(o.status==='progress'||o.status==='accepted'||o.status==='done')?
+      `<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" onclick="openChatModal(${o.id},'customer','${hasDriver?'customer-driver':'customer-admin'}')">
+        💬 Chat ${hasDriver?'Driver / Admin':'Admin'}</button>`:'';
+    const driverInfo=hasDriver?`<div style="background:#161B22;border-radius:8px;padding:8px;font-size:13px;margin:6px 0">
+      🧑‍✈️ ${o.driver.name} • ${o.driver.phone} • ${o.driver.vehicle}</div>`:'';
+    const trackBtn=(o.status==='progress'&&hasDriver)?
+      `<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px;border-color:#58A6FF;color:#58A6FF" onclick="openTrackModal(${o.id})">🗺️ Lacak Driver Live</button>`:'';
+    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} — ${s.menu||'-'}</div>`).join(''):'';
+    return `<div class="card">
+      <div class="flex-between" style="margin-bottom:6px">${statusBadge(o.status)}<span class="muted" style="font-size:11px">${o.date} ${o.createdAt}</span></div>
+      ${statusTracker(o.status)}
+      <div style="font-size:14px">${o.type==='food'?'🍔 Pesan Makanan':'🛵 Antar Jemput'}</div>
+      <div class="info-row">📍 ${o.alamatCustomer}</div>
+      ${stopsHtml}
+      <div style="color:#39D353;font-weight:800;font-size:16px;margin:6px 0">${fmtRp(o.ongkir)}</div>
+      ${driverInfo}${chatBtn}${trackBtn}
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// DRIVER SCREEN
+// ═══════════════════════════════════════════════════════════
+function renderDriver(){
+  const me=drivers.find(d=>d.id===session.id);
+  if(!me) return;
+  resumeLocationSharing();
+  document.getElementById('d-topbar-name').textContent=branding.appName+' — '+me.name;
+  const all=orders.filter(o=>o.driver&&o.driver.id===session.id);
+  const active=all.filter(o=>o.status==='progress');
+  const done=all.filter(o=>o.status==='done');
+  document.getElementById('d-stats').innerHTML=[
+    ['📦',all.length,'Total'],['🛵',active.length,'Aktif'],['🎉',done.length,'Selesai']
+  ].map(([ic,v,l])=>`<div class="card" style="text-align:center;padding:10px;margin:0"><div style="font-size:18px">${ic}</div><div class="stat-val">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
+  dRenderTab();
+}
+
+function dSetTab(tab){
+  dTab=tab;
+  ['available','active','history'].forEach(t=>{
+    document.getElementById('d-tab-'+t).style.display=t===tab?'block':'none';
+    document.getElementById('dtab-'+t).className='btn btn-sm tab-btn '+(t===tab?'btn-primary':'btn-ghost');
+  });
+  dRenderTab();
+}
+
+function dRenderTab(){
+  const me=drivers.find(d=>d.id===session.id);
+  const available=orders.filter(o=>o.status==='accepted'&&!o.driver);
+  const myActive=orders.filter(o=>o.driver&&o.driver.id===session.id&&o.status==='progress');
+  const myDone=orders.filter(o=>o.driver&&o.driver.id===session.id&&o.status==='done');
+
+  // available
+  const avEl=document.getElementById('d-tab-available');
+  if(available.length===0){ avEl.innerHTML='<div class="empty-msg">Tidak ada orderan tersedia</div>'; }
+  else avEl.innerHTML=available.map(o=>{
+    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} (${s.alamatResto}) — ${s.menu||'-'}</div>`).join(''):'';
+    return `<div class="card">
+      <div class="flex-between" style="margin-bottom:6px">${badge(o.type==='food'?'🍔 Makanan':'🛵 Antar','blue')}<span class="muted" style="font-size:11px">${o.createdAt}</span></div>
+      <div style="font-weight:600">👤 ${o.customerName} • ${o.customerPhone}</div>
+      <div class="info-row">📍 ${o.alamatCustomer} • ${o.jarak} km</div>
+      ${stopsHtml}
+      ${o.catatan?`<div style="font-size:12px;color:#F0A500">📝 ${o.catatan}</div>`:''}
+      <div style="color:#39D353;font-weight:900;font-size:18px;margin:8px 0">${fmtRp(o.ongkir)}</div>
+      <button class="btn btn-primary btn-block" onclick="dAcceptOrder(${o.id})">✅ Terima Orderan</button>
+    </div>`;
+  }).join('');
+
+  // active
+  const acEl=document.getElementById('d-tab-active');
+  if(myActive.length===0){ acEl.innerHTML='<div class="empty-msg">Tidak ada orderan aktif</div>'; }
+  else acEl.innerHTML=myActive.map(o=>{
+    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} — ${s.menu||'-'}</div>`).join(''):'';
+    return `<div class="card">
+      <div style="font-weight:600">👤 ${o.customerName} • ${o.customerPhone}</div>
+      <div class="info-row">📍 ${o.alamatCustomer}</div>
+      ${stopsHtml}
+      <div style="color:#39D353;font-weight:800;font-size:16px;margin:6px 0">${fmtRp(o.ongkir)}</div>
+      <div class="grid-2" style="gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'driver','customer-driver')">💬 Chat Customer</button>
+        <button class="btn btn-primary btn-sm" onclick="dDoneOrder(${o.id})">✅ Selesai</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // history
+  const hiEl=document.getElementById('d-tab-history');
+  if(myDone.length===0){ hiEl.innerHTML='<div class="empty-msg">Belum ada riwayat</div>'; }
+  else hiEl.innerHTML=myDone.map(o=>`<div class="card" style="opacity:.8">
+    <div class="flex-between">${badge('🎉 Selesai','green')}<span class="muted" style="font-size:11px">${o.date}</span></div>
+    <div class="info-row" style="margin-top:6px">👤 ${o.customerName} → ${o.alamatCustomer}</div>
+    <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
+  </div>`).join('');
+}
+
+function dAcceptOrder(oid){
+  const me=drivers.find(d=>d.id===session.id);
+  const o=orders.find(o=>o.id===oid);
+  if(!o||!me) return;
+  o.status='progress'; o.driver={...me};
+  fbUpdateOrder(oid,{status:'progress',driver:{...me}});
+  startLocationSharing(oid);
+  renderDriver();
+}
+
+function dDoneOrder(oid){
+  const o=orders.find(o=>o.id===oid);
+  if(o){
+    o.status='done';
+    fbUpdateOrder(oid,{status:'done',driverLocation:null});
+    stopLocationSharing(oid);
+    renderDriver();
+  }
+}
+
+function openDriverProfileModal(){
+  const me=drivers.find(d=>d.id===session.id)||{};
+  document.getElementById('dp-name').value=me.name||'';
+  document.getElementById('dp-phone').value=me.phone||'';
+  document.getElementById('dp-vehicle').value=me.vehicle||'';
+  openModal('modal-driver-profile');
+}
+
+function dSaveProfile(){
+  const i=drivers.findIndex(d=>d.id===session.id);
+  if(i<0) return;
+  drivers[i].name=document.getElementById('dp-name').value;
+  drivers[i].phone=document.getElementById('dp-phone').value;
+  drivers[i].vehicle=document.getElementById('dp-vehicle').value;
+  closeModal('modal-driver-profile');
+  renderDriver();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN SCREEN
+// ═══════════════════════════════════════════════════════════
+function renderAdmin(){
+  const pending=orders.filter(o=>o.status==='pending');
+  const active=orders.filter(o=>['accepted','progress'].includes(o.status));
+  const revenue=orders.filter(o=>o.status==='done').reduce((s,o)=>s+o.ongkir,0);
+  document.getElementById('a-stats').innerHTML=[
+    ['📦',orders.length,'Total Order'],['⏳',pending.length,'Pending'],
+    ['🛵',active.length,'Aktif'],['💰','Rp'+(revenue/1000).toFixed(0)+'K','Pendapatan']
+  ].map(([ic,v,l])=>`<div class="stat-box"><div style="font-size:20px">${ic}</div><div class="stat-val">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
+  aRenderTab();
+}
+
+function aSetTab(tab){
+  aTab=tab;
+  ['orders','drivers','customers','settings'].forEach(t=>{
+    document.getElementById('a-tab-'+t).style.display=t===tab?'block':'none';
+    document.getElementById('atab-'+t).className='btn btn-sm '+(t===tab?'btn-primary':'btn-ghost');
+    document.getElementById('atab-'+t).style.cssText='font-size:11px;padding:7px 4px';
+  });
+  aRenderTab();
+}
+
+function aRenderTab(){
+  if(aTab==='orders') aRenderOrders();
+  else if(aTab==='drivers') aRenderDrivers();
+  else if(aTab==='customers') aRenderCustomers();
+  else if(aTab==='settings') aRenderSettings();
+}
+
+function aRenderOrders(){
+  const pending=orders.filter(o=>o.status==='pending');
+  const active=orders.filter(o=>['accepted','progress'].includes(o.status));
+  const done=orders.filter(o=>['done','rejected'].includes(o.status));
+  let html='';
+  html+=`<div class="section-title">⏳ Orderan Masuk (${pending.length})</div>`;
+  if(pending.length===0) html+='<div class="card"><div class="muted" style="text-align:center">Tidak ada orderan pending</div></div>';
+  html+=pending.map(o=>{
+    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} (${s.alamatResto}) — ${s.menu||'-'}</div>`).join(''):'';
+    return `<div class="card">
+      <div class="flex-between" style="margin-bottom:6px">${badge(o.type==='food'?'🍔 Makanan':'🛵 Antar','blue')}<span class="muted" style="font-size:11px">#${String(o.id).slice(-4)} • ${o.createdAt}</span></div>
+      <div style="font-weight:600">👤 ${o.customerName} • ${o.customerPhone}</div>
+      <div class="info-row">📍 ${o.alamatCustomer} • ${o.jarak} km</div>
+      ${stopsHtml}
+      ${o.catatan?`<div style="font-size:12px;color:#F0A500">📝 ${o.catatan}</div>`:''}
+      <div style="color:#39D353;font-weight:900;font-size:18px;margin:8px 0">${fmtRp(o.ongkir)}</div>
+      <div class="grid-2" style="gap:8px;margin-bottom:8px">
+        <button class="btn btn-primary btn-sm" onclick="aAccept(${o.id})">✅ Terima & Broadcast</button>
+        <button class="btn btn-danger btn-sm" onclick="aReject(${o.id})">❌ Tolak</button>
+      </div>
+      <button class="btn btn-ghost btn-sm btn-block" onclick="openChatModal(${o.id},'admin','customer-admin')">💬 Chat Customer</button>
+    </div>`;
+  }).join('');
+
+  html+=`<div class="section-title" style="margin-top:12px">🛵 Sedang Berjalan (${active.length})</div>`;
+  if(active.length===0) html+='<div class="card"><div class="muted" style="text-align:center">Tidak ada orderan aktif</div></div>';
+  html+=active.map(o=>`<div class="card">
+    <div class="flex-between" style="margin-bottom:4px">${badge(o.status==='accepted'?'✅ Menunggu Driver':'🛵 On Progress',o.status==='accepted'?'yellow':'blue')}<span class="muted" style="font-size:11px">${o.createdAt}</span></div>
+    ${statusTracker(o.status)}
+    <div class="info-row">👤 ${o.customerName}</div>
+    ${o.driver?`<div class="info-row">🧑‍✈️ ${o.driver.name} — ${o.driver.vehicle}</div>`:''}
+    <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
+    <div class="grid-2" style="gap:8px;margin-top:8px">
+      <button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'admin','customer-admin')">💬 Chat Customer</button>
+      ${o.driver?`<button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'admin','customer-driver')">👁 Monitor Chat</button>`:''}
+    </div>
+    ${(o.status==='progress'&&o.driver)?`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px;border-color:#58A6FF;color:#58A6FF" onclick="openTrackModal(${o.id})">🗺️ Lacak Driver Live</button>`:''}
+  </div>`).join('');
+
+  html+=`<div class="section-title" style="margin-top:12px">📋 Riwayat (${done.length})</div>`;
+  html+=done.map(o=>`<div class="card" style="opacity:.7">
+    <div class="flex-between">${statusBadge(o.status)}<span class="muted" style="font-size:11px">${o.date}</span></div>
+    <div class="info-row" style="margin-top:4px">👤 ${o.customerName} → ${o.alamatCustomer}</div>
+    ${o.driver?`<div class="info-row">🧑‍✈️ ${o.driver.name}</div>`:''}
+    <div style="color:${o.status==='done'?'#39D353':'#F85149'};font-weight:700">${fmtRp(o.ongkir)}</div>
+  </div>`).join('');
+
+  document.getElementById('a-tab-orders').innerHTML=html;
+}
+
+function aAccept(oid){ const o=orders.find(x=>x.id===oid); if(o){ o.status='accepted'; fbUpdateOrder(oid,{status:'accepted'}); renderAdmin(); } }
+function aReject(oid){ const o=orders.find(x=>x.id===oid); if(o){ o.status='rejected'; fbUpdateOrder(oid,{status:'rejected'}); renderAdmin(); } }
+
+function aRenderDrivers(){
+  let html=`<div class="flex-between" style="margin-bottom:10px">
+    <div class="section-title" style="margin:0">🧑‍✈️ Daftar Driver (${drivers.length})</div>
+    <button class="btn btn-primary btn-sm" onclick="aToggleAddDriver()">+ Tambah Driver</button>
+  </div>`;
+  html+=`<div id="a-add-driver-form" style="display:${addingDriver?'block':'none'}">
+    <div class="card" style="border-color:#39D353">
+      <div style="font-weight:700;color:#39D353;margin-bottom:10px">Tambah Driver Baru</div>
+      <div class="input-label">Nama Lengkap *</div><input id="nd-name" class="input-field" placeholder="Nama driver"/>
+      <div class="input-label">No. HP</div><input id="nd-phone" class="input-field" placeholder="08xx-xxxx-xxxx"/>
+      <div class="input-label">Kendaraan</div><input id="nd-vehicle" class="input-field" placeholder="Honda Vario - B 1234 XY"/>
+      <div class="grid-2" style="gap:8px">
+        <div><div class="input-label">Username *</div><input id="nd-user" class="input-field" placeholder="username"/></div>
+        <div><div class="input-label">Password *</div><input id="nd-pass" class="input-field" placeholder="password"/></div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="aSaveDriver()">Simpan Driver</button>
+    </div>
+  </div>`;
+  html+=drivers.map(d=>{
+    const drOrders=orders.filter(o=>o.driver&&o.driver.id===d.id);
+    const drDone=drOrders.filter(o=>o.status==='done');
+    const drRev=drDone.reduce((s,o)=>s+o.ongkir,0);
+    return `<div class="card" onclick="aShowDriverDetail('${d.id}')" style="cursor:pointer">
+      <div class="flex-between" style="align-items:flex-start">
+        <div class="profile-row">
+          <span style="font-size:32px">🧑‍✈️</span>
+          <div>
+            <div style="font-weight:700">${d.name}</div>
+            <div class="info-row">📞 ${d.phone}</div>
+            <div class="info-row">🏍️ ${d.vehicle}</div>
+            <div style="color:#8B949E;font-size:11px">🔑 @${d.username}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          ${badge(d.active?'Aktif':'Nonaktif',d.active?'green':'red')}
+          <div style="color:#39D353;font-weight:700;margin-top:6px">${drDone.length} order</div>
+          <div class="muted" style="font-size:11px">Rp ${(drRev/1000).toFixed(0)}K</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn ${d.active?'btn-danger':'btn-ghost'} btn-sm" onclick="event.stopPropagation();aToggleDriver('${d.id}')">${d.active?'Nonaktifkan':'Aktifkan'}</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();aShowDriverDetail('${d.id}')">📊 Statistik</button>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('a-tab-drivers').innerHTML=html;
+}
+
+function aToggleAddDriver(){ addingDriver=!addingDriver; aRenderDrivers(); }
+
+function aSaveDriver(){
+  const name=document.getElementById('nd-name').value.trim();
+  const phone=document.getElementById('nd-phone').value.trim();
+  const vehicle=document.getElementById('nd-vehicle').value.trim();
+  const user=document.getElementById('nd-user').value.trim();
+  const pass=document.getElementById('nd-pass').value.trim();
+  if(!name||!user||!pass) return alert('Lengkapi semua field wajib!');
+  if(drivers.find(d=>d.username===user)) return alert('Username sudah dipakai!');
+  drivers.push({id:'D'+Date.now(),name,phone,vehicle,username:user,password:pass,active:true});
+  addingDriver=false;
+  alert(`✅ Driver ${name} ditambahkan!\nUsername: ${user}\nPassword: ${pass}`);
+  renderAdmin();
+}
+
+function aToggleDriver(id){ const d=drivers.find(x=>x.id===id); if(d){ d.active=!d.active; renderAdmin(); } }
+
+function aShowDriverDetail(id){
+  const d=drivers.find(x=>x.id===id); if(!d) return;
+  const drOrders=orders.filter(o=>o.driver&&o.driver.id===id);
+  const drDone=drOrders.filter(o=>o.status==='done');
+  const drActive=drOrders.filter(o=>o.status==='progress');
+  const drRev=drDone.reduce((s,o)=>s+o.ongkir,0);
+  document.getElementById('driver-detail-title').textContent='📊 '+d.name;
+  document.getElementById('driver-detail-body').innerHTML=`
+    <div class="card">
+      <div style="font-size:32px;margin-bottom:6px">🧑‍✈️</div>
+      <div style="font-weight:700;font-size:16px">${d.name}</div>
+      <div class="info-row">📞 ${d.phone}</div>
+      <div class="info-row">🏍️ ${d.vehicle}</div>
+      <div style="color:#8B949E;font-size:12px;margin-top:4px">Username: <b style="color:#E6EDF3">${d.username}</b></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${badge(drOrders.length+' Total','blue')} ${badge(drActive.length+' Aktif','yellow')}
+        ${badge(drDone.length+' Selesai','green')} ${badge('Rp '+(drRev/1000).toFixed(0)+'K','purple')}
+      </div>
+    </div>
+    <div class="section-title">📋 Riwayat Orderan</div>
+    ${drOrders.length===0?'<div class="empty-msg">Belum ada orderan</div>':drOrders.map(o=>`
+      <div class="card" style="opacity:.9">
+        <div class="flex-between">${statusBadge(o.status)}<span class="muted" style="font-size:11px">${o.date}</span></div>
+        <div class="info-row" style="margin-top:4px">👤 ${o.customerName} → ${o.alamatCustomer}</div>
+        <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
+      </div>`).join('')}`;
+  openModal('modal-driver-detail');
+}
+
+function aRenderCustomers(){
+  const custMap={};
+  orders.forEach(o=>{ if(!o.customerPhone) return; if(!custMap[o.customerPhone]) custMap[o.customerPhone]={name:o.customerName,phone:o.customerPhone,address:o.customerAddress,orders:[]}; custMap[o.customerPhone].orders.push(o); });
+  const customers=Object.values(custMap).sort((a,b)=>b.orders.length-a.orders.length);
+  let html=`<div class="section-title">👤 Data Customer (${customers.length})</div>`;
+  if(customers.length===0){ html+='<div class="empty-msg">Belum ada customer yang order</div>'; }
+  else html+=customers.map(c=>{
+    const total=c.orders.reduce((s,o)=>s+o.ongkir,0);
+    const done2=c.orders.filter(o=>o.status==='done').length;
+    const loyal=c.orders.length>=3?badge('⭐ Pelanggan Setia','yellow'):'';
+    return `<div class="card" onclick="aShowCustomerDetail('${c.phone}')" style="cursor:pointer">
+      <div class="flex-between" style="align-items:flex-start">
+        <div>
+          <div style="font-weight:700">${c.name}</div>
+          <div class="info-row">📞 ${c.phone}</div>
+          ${c.address?`<div class="info-row">📍 ${c.address}</div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="color:#39D353;font-weight:800;font-size:20px">${c.orders.length}×</div>
+          <div class="muted" style="font-size:11px">Rp ${(total/1000).toFixed(0)}K</div>
+          ${loyal}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${badge(c.orders.length+' Order','blue')} ${badge(done2+' Selesai','green')}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('a-tab-customers').innerHTML=html;
+}
+
+function aShowCustomerDetail(phone){
+  const custMap={};
+  orders.forEach(o=>{ if(!o.customerPhone) return; if(!custMap[o.customerPhone]) custMap[o.customerPhone]={name:o.customerName,phone:o.customerPhone,address:o.customerAddress,orders:[]}; custMap[o.customerPhone].orders.push(o); });
+  const c=custMap[phone]; if(!c) return;
+  const total=c.orders.reduce((s,o)=>s+o.ongkir,0);
+  const done2=c.orders.filter(o=>o.status==='done');
+  document.getElementById('cust-detail-title').textContent='👤 '+c.name;
+  document.getElementById('cust-detail-body').innerHTML=`
+    <div class="card">
+      <div style="font-size:32px;margin-bottom:6px">👤</div>
+      <div style="font-weight:700;font-size:16px">${c.name}</div>
+      <div class="info-row">📞 ${c.phone}</div>
+      ${c.address?`<div class="info-row">📍 ${c.address}</div>`:''}
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${badge(c.orders.length+' Total Order','blue')} ${badge(done2.length+' Selesai','green')}
+        ${badge('Rp '+(total/1000).toFixed(0)+'K Total','yellow')}
+      </div>
+    </div>
+    <div class="section-title">📋 History Orderan (${c.orders.length})</div>
+    ${c.orders.map(o=>`
+      <div class="card" style="opacity:.9">
+        <div class="flex-between" style="margin-bottom:4px">${statusBadge(o.status)}<span class="muted" style="font-size:11px">${o.date} ${o.createdAt}</span></div>
+        <div class="info-row">📍 ${o.alamatCustomer} • ${o.jarak} km</div>
+        ${o.driver?`<div class="info-row">🧑‍✈️ ${o.driver.name}</div>`:''}
+        <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
+      </div>`).join('')}`;
+  openModal('modal-cust-detail');
+}
+
+function aRenderSettings(){
+  sPendingLogo = { type: branding.logoType, image: branding.logoImage };
+  document.getElementById('a-tab-settings').innerHTML=`
+    <div class="card" style="border-color:#39D353">
+      <div style="font-weight:700;color:#39D353;margin-bottom:12px">🎨 Kustomisasi Branding</div>
+      <div class="input-label">Logo Aplikasi</div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <div id="s-logo-thumb" style="width:56px;height:56px;border-radius:14px;background:#0D1117;border:1px solid #30363D;display:flex;align-items:center;justify-content:center;font-size:28px;overflow:hidden;flex-shrink:0">${logoThumbHTML()}</div>
+        <div style="flex:1;display:flex;gap:6px;flex-wrap:wrap">
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">📷 Unggah Logo
+            <input type="file" accept="image/png,image/jpeg" style="display:none" onchange="sHandleLogoUpload(this)"/>
+          </label>
+          <span id="s-logo-remove-wrap" style="display:${branding.logoType==='image'?'inline-block':'none'}">
+            <button class="btn btn-ghost btn-sm" onclick="sRemoveLogoImage()">🗑 Hapus</button>
+          </span>
+        </div>
+      </div>
+      <div class="muted" style="font-size:11px;margin-bottom:12px">Format PNG/JPG, otomatis dipangkas persegi & dikompres (maks 256×256px) agar pas di kotak logo.</div>
+      <div class="input-label">Atau gunakan Emoji sebagai Logo</div>
+      <input id="s-logo" class="input-field" value="${branding.logo}" oninput="sPreviewBrand()" placeholder="🛵"/>
+      <div class="input-label">Nama Aplikasi</div><input id="s-appname" class="input-field" value="${branding.appName}" oninput="sPreviewBrand()"/>
+      <div class="input-label">Subtitle / Tagline</div><input id="s-sub" class="input-field" value="${branding.subtitle}" oninput="sPreviewBrand()"/>
+      <div class="preview-brand" id="s-brand-preview">${brandPreviewHTML()}</div>
+      <button class="btn btn-primary btn-block" onclick="sSaveBrand()">💾 Simpan Branding</button>
+    </div>
+    <div class="card">
+      <div class="section-title">⚙️ Konfigurasi Tarif Ongkir</div>
+      <div class="input-label">Biaya per KM (Rp)</div><input id="s-bpkm" class="input-field" type="number" value="${tarif.basePerKm}" oninput="sPreviewTarif()"/>
+      <div class="input-label">Biaya Pickup Dasar (Rp)</div><input id="s-bpf" class="input-field" type="number" value="${tarif.pickupFee}" oninput="sPreviewTarif()"/>
+      <div class="input-label">Biaya Tambahan per Stop (Rp)</div><input id="s-msf" class="input-field" type="number" value="${tarif.multiStopFee}" oninput="sPreviewTarif()"/>
+      <div class="tarif-preview" id="s-tarif-preview"></div>
+      <button class="btn btn-primary btn-block" onclick="sSaveTarif()">💾 Simpan Tarif</button>
+    </div>
+    <div class="card">
+      <div class="section-title">🔑 Info Akun Admin</div>
+      <div class="info-row">Username: <b style="color:#E6EDF3">admin</b></div>
+      <div class="info-row">Password: <b style="color:#E6EDF3">admin123</b></div>
+      <div class="muted" style="font-size:11px;margin-top:6px">Untuk keamanan, ganti password di versi production.</div>
+    </div>`;
+  sPreviewTarif();
+}
+
+function logoThumbHTML(){
+  if(sPendingLogo.type==='image' && sPendingLogo.image){
+    return `<img src="${sPendingLogo.image}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;display:block"/>`;
+  }
+  return branding.logo;
+}
+
+function brandPreviewHTML(){
+  const logoMarkup=(sPendingLogo.type==='image' && sPendingLogo.image)
+    ? `<img src="${sPendingLogo.image}" style="width:48px;height:48px;object-fit:cover;border-radius:12px;display:block;margin:0 auto 6px"/>`
+    : `<div style="font-size:40px">${branding.logo}</div>`;
+  return `${logoMarkup}<div style="font-weight:800;font-size:20px">${branding.appName}</div><div class="muted" style="font-size:13px">${branding.subtitle}</div>`;
+}
+
+function sPreviewBrand(){
+  const logo=document.getElementById('s-logo').value;
+  const name=document.getElementById('s-appname').value;
+  const sub=document.getElementById('s-sub').value;
+  let logoMarkup;
+  if(sPendingLogo.type==='image' && sPendingLogo.image){
+    logoMarkup=`<img src="${sPendingLogo.image}" style="width:48px;height:48px;object-fit:cover;border-radius:12px;display:block;margin:0 auto 6px"/>`;
+  } else {
+    logoMarkup=`<div style="font-size:40px">${logo||'🛵'}</div>`;
+    const thumb=document.getElementById('s-logo-thumb');
+    if(thumb) thumb.textContent=logo||'🛵';
+  }
+  document.getElementById('s-brand-preview').innerHTML=`${logoMarkup}<div style="font-weight:800;font-size:20px">${name}</div><div class="muted" style="font-size:13px">${sub}</div>`;
+}
+
+// Crop uploaded PNG/JPG to a centered square and compress/resize so it fits the
+// logo container nicely without bloating the page with huge images.
+function sHandleLogoUpload(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  if(!file) return;
+  if(!['image/png','image/jpeg','image/jpg'].includes(file.type)){
+    alert('Format logo harus PNG atau JPG.');
+    inputEl.value='';
+    return;
+  }
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    const img=new Image();
+    img.onload=function(){
+      const MAX=256; // max output size in px, plenty for the logo containers
+      const side=Math.min(img.width,img.height);
+      const sx=(img.width-side)/2, sy=(img.height-side)/2;
+      const canvas=document.createElement('canvas');
+      canvas.width=MAX; canvas.height=MAX;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, MAX, MAX);
+      const isPng=file.type==='image/png';
+      const dataUrl=isPng?canvas.toDataURL('image/png'):canvas.toDataURL('image/jpeg',0.85);
+      sPendingLogo={type:'image',image:dataUrl};
+      const thumb=document.getElementById('s-logo-thumb');
+      if(thumb) thumb.innerHTML=logoThumbHTML();
+      const removeWrap=document.getElementById('s-logo-remove-wrap');
+      if(removeWrap) removeWrap.style.display='inline-block';
+      sPreviewBrand();
+    };
+    img.onerror=function(){ alert('Gagal memuat gambar. Coba file lain.'); inputEl.value=''; };
+    img.src=ev.target.result;
+  };
+  reader.onerror=function(){ alert('Gagal membaca file.'); inputEl.value=''; };
+  reader.readAsDataURL(file);
+}
+
+function sRemoveLogoImage(){
+  sPendingLogo={type:'emoji',image:null};
+  const thumb=document.getElementById('s-logo-thumb');
+  if(thumb) thumb.innerHTML=logoThumbHTML();
+  const removeWrap=document.getElementById('s-logo-remove-wrap');
+  if(removeWrap) removeWrap.style.display='none';
+  const fileInput=document.querySelector('#a-tab-settings input[type="file"]');
+  if(fileInput) fileInput.value='';
+  sPreviewBrand();
+}
+
+function sSaveBrand(){
+  branding.logo=document.getElementById('s-logo').value||'🛵';
+  branding.appName=document.getElementById('s-appname').value;
+  branding.subtitle=document.getElementById('s-sub').value;
+  branding.logoType=sPendingLogo.type;
+  branding.logoImage=sPendingLogo.image;
+  updateBrandingUI();
+  alert('✅ Branding diperbarui!');
+}
+
+function sPreviewTarif(){
+  const bpkm=parseFloat(document.getElementById('s-bpkm').value)||0;
+  const bpf=parseFloat(document.getElementById('s-bpf').value)||0;
+  const msf=parseFloat(document.getElementById('s-msf').value)||0;
+  const el=document.getElementById('s-tarif-preview');
+  if(!el) return;
+  el.innerHTML=`<div style="font-weight:700;color:#E6EDF3;margin-bottom:4px">Preview (5 km):</div>
+    <div>• 1 stop → ${fmtRp(5*bpkm+bpf)}</div>
+    <div>• 2 stop → ${fmtRp(5*bpkm+bpf+msf)}</div>
+    <div>• 3 stop → ${fmtRp(5*bpkm+bpf+2*msf)}</div>`;
+}
+
+function sSaveTarif(){
+  tarif.basePerKm=parseFloat(document.getElementById('s-bpkm').value)||0;
+  tarif.pickupFee=parseFloat(document.getElementById('s-bpf').value)||0;
+  tarif.multiStopFee=parseFloat(document.getElementById('s-msf').value)||0;
+  alert('✅ Tarif diperbarui!');
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHAT MODAL
+// ═══════════════════════════════════════════════════════════
+function openChatModal(orderId, role, defaultThread){
+  chatOrderId=orderId;
+  chatRole=role;
+  chatThread=defaultThread||'customer-admin';
+  renderChatModal();
+  openModal('modal-chat');
+}
+
+function switchChatThread(thread){ chatThread=thread; renderChatModal(); }
+
+function renderChatMessages(){
+  const thread=getThread(chatOrderId,chatThread);
+  const roleLabel={customer:'Customer',driver:'Driver',admin:'Admin'};
+  const el=document.getElementById('chat-messages');
+  if(thread.length===0){ el.innerHTML='<div class="muted" style="text-align:center;margin-top:40px;font-size:13px">Belum ada pesan</div>'; return; }
+  el.innerHTML=thread.map(m=>{
+    const mine=m.sender===chatRole;
+    return `<div style="display:flex;justify-content:${mine?'flex-end':'flex-start'}">
+      <div class="chat-bubble ${mine?'chat-bubble-mine':'chat-bubble-other'}">
+        <div class="chat-sender">${roleLabel[m.sender]||m.sender}</div>
+        <div class="chat-text">${m.text}</div>
+        <div class="chat-time">${m.time}</div>
+      </div>
+    </div>`;
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+function sendChat(){
+  const inp=document.getElementById('chat-input');
+  const text=inp.value.trim();
+  if(!text) return;
+  appendChat(chatOrderId,chatThread,{sender:chatRole,text,time:nowTime()});
+  inp.value='';
+  renderChatMessages();
+}
+
+// Fix template literal with special char
+const peerMapFn = (o, thread, role) => {
+  if(thread==='customer-driver') return role==='customer'?(o&&o.driver?o.driver.name:'Driver'):'Customer';
+  return role==='admin'?(o?o.customerName:'Customer'):'Admin';
+};
+
+// Patch renderChatModal to use function
+function renderChatModal(){
+  const o=orders.find(x=>x.id===chatOrderId);
+  const tabs=[];
+  if(o&&o.driver) tabs.push({k:'customer-driver',l:'Customer \u2194 Driver'});
+  tabs.push({k:'customer-admin',l:'Customer \u2194 Admin'});
+  document.getElementById('chat-tabs').innerHTML=tabs.map(t=>
+    `<button class="btn btn-sm ${chatThread===t.k?'btn-primary':'btn-ghost'}" onclick="switchChatThread('${t.k}')">${t.l}</button>`
+  ).join('');
+  document.getElementById('chat-peer-label').textContent='Chat dengan: '+peerMapFn(o,chatThread,chatRole);
+  renderChatMessages();
+}
+
+// ═══════════════════════════════════════════════════════════
+// LIVE TRACKING (Driver GPS -> Firebase -> Customer/Admin map)
+// ═══════════════════════════════════════════════════════════
+let driverWatchers = {};   // orderId -> geolocation watch id
+let trackingOrderId = null;
+let trackMap = null;
+let trackMarker = null;
+const LOCATION_WRITE_INTERVAL = 4000; // throttle Firebase writes (ms)
+
+// Start broadcasting this driver's live GPS position for an order.
+function startLocationSharing(oid){
+  if(driverWatchers[oid]!=null) return; // already sharing for this order
+  if(!navigator.geolocation){ alert('Perangkat ini tidak mendukung GPS.'); return; }
+  let lastWrite=0;
+  const watchId=navigator.geolocation.watchPosition(pos=>{
+    const now=Date.now();
+    if(now-lastWrite<LOCATION_WRITE_INTERVAL) return;
+    lastWrite=now;
+    fbUpdateOrder(oid,{driverLocation:{
+      lat:pos.coords.latitude, lng:pos.coords.longitude, updatedAt:now
+    }});
+  }, err=>{
+    console.warn('Geolocation error:', err.message);
+  }, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+  driverWatchers[oid]=watchId;
+}
+
+function stopLocationSharing(oid){
+  if(driverWatchers[oid]!=null){
+    navigator.geolocation.clearWatch(driverWatchers[oid]);
+    delete driverWatchers[oid];
+  }
+}
+
+// Resume GPS sharing for orders that are still 'progress' (e.g. after the
+// driver's page is reloaded mid-delivery).
+function resumeLocationSharing(){
+  if(!session||session.role!=='driver') return;
+  orders.filter(o=>o.driver&&o.driver.id===session.id&&o.status==='progress')
+    .forEach(o=>startLocationSharing(o.id));
+}
+
+// Customer/Admin: open live map modal and follow the driver's position.
+function openTrackModal(oid){
+  trackingOrderId=oid;
+  trackMarker=null;
+  openModal('modal-track');
+  const statusEl=document.getElementById('track-status');
+  if(typeof L==='undefined'){
+    statusEl.textContent='Peta tidak dapat dimuat (cek koneksi internet).';
+    return;
+  }
+  statusEl.textContent='Menunggu lokasi driver…';
+  setTimeout(()=>{
+    if(!trackMap){
+      trackMap=L.map('track-map').setView([-6.2,106.8],13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxZoom:19, attribution:'© OpenStreetMap'
+      }).addTo(trackMap);
+    }
+    trackMap.invalidateSize();
+    updateTrackMarker();
+  },150);
+}
+
+function closeTrackModal(){
+  trackingOrderId=null;
+  closeModal('modal-track');
+}
+
+function updateTrackMarker(){
+  if(trackingOrderId==null||!trackMap) return;
+  const o=orders.find(x=>x.id===trackingOrderId);
+  const statusEl=document.getElementById('track-status');
+  if(!o||o.status!=='progress'){
+    statusEl.textContent='Order sudah tidak aktif.';
+    return;
+  }
+  const loc=o.driverLocation;
+  if(!loc){ statusEl.textContent='Menunggu lokasi driver…'; return; }
+  const latlng=[loc.lat,loc.lng];
+  if(!trackMarker){
+    const icon=L.divIcon({className:'leaflet-pulse-icon',html:'🛵',iconSize:[26,26]});
+    trackMarker=L.marker(latlng,{icon}).addTo(trackMap);
+    trackMap.setView(latlng,15);
+  } else {
+    trackMarker.setLatLng(latlng);
+    trackMap.panTo(latlng);
+  }
+  const secsAgo=Math.max(0,Math.round((Date.now()-loc.updatedAt)/1000));
+  statusEl.textContent=`🛵 ${o.driver?o.driver.name:'Driver'} • update ${secsAgo} detik lalu`;
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+// patch customer profile modal open button
+document.querySelector('#screen-customer .topbar button[onclick="openModal(\'modal-cust-profile\')"]')
+  ?.setAttribute('onclick','openCustProfileModal()');
+
+cUpdateOrderType();
+renderCStops();
+updateBrandingUI();
+document.querySelectorAll('.screen').forEach(s=>{ s.dataset.disp = s.style.display || 'block'; });
+showScreen('landing');
+</script>
+</body>
+</html>
