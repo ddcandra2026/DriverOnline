@@ -62,7 +62,7 @@
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
   .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
-  .watermark{position:fixed;bottom:8px;right:10px;font-size:10px;color:#8B949E;opacity:.4;font-style:italic;pointer-events:none;z-index:9}
+  .watermark{font-size:10px;color:#8B949E;opacity:.4;font-style:italic;text-align:center;margin-top:18px;pointer-events:none}
   .landing-btn{background:#1C2128;border:1px solid #30363D;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;color:#E6EDF3;font-weight:700;font-size:15px;width:100%;margin-bottom:10px;transition:border-color .2s,transform .1s,background .2s;text-align:left}
   .landing-btn:active{transform:scale(.98);background:#21262d}
   .landing-btn:hover{border-color:#39D353}
@@ -94,9 +94,6 @@
 </head>
 <body>
 
-<!-- WATERMARK -->
-<div class="watermark">Developed by D.D Candra</div>
-
 <!-- ═══════════════════════════════════════════════════════════
      LANDING SCREEN
 ═══════════════════════════════════════════════════════════ -->
@@ -126,6 +123,7 @@
       <span class="chev">›</span>
     </button>
   </div>
+  <div class="watermark">Developed by D.D Candra</div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════
@@ -388,12 +386,14 @@ const firebaseConfig = {
   messagingSenderId: "898706383395",
   appId: "1:898706383395:web:6457b486ec667abc80c796"
 };
-let db=null, ordersRef=null;
+let db=null, ordersRef=null, chatsRef=null, settingsRef=null;
 try{
   if(typeof firebase!=='undefined'){
     firebase.initializeApp(firebaseConfig);
     db=firebase.database();
     ordersRef=db.ref('orders');
+    chatsRef=db.ref('chats');
+    settingsRef=db.ref('settings');
     // Local `orders` array mirrors the `orders/{id}` node in Realtime Database.
     // Every create/update goes through fbSetOrder / fbUpdateOrder; this listener
     // then refreshes the local cache + re-renders the active screen for everyone.
@@ -403,6 +403,32 @@ try{
       refreshActiveScreen();
     }, err=>{
       console.error('Firebase orders sync error:', err);
+    });
+    // Chat messages: chats/{orderId}/{threadKey}/{pushId} = {sender,text,time,ts}
+    chatsRef.on('value', snap=>{
+      const val=snap.val()||{};
+      const newChats={};
+      Object.keys(val).forEach(oid=>{
+        const threads=val[oid]||{};
+        newChats[oid]={
+          'customer-driver': Object.values(threads['customer-driver']||{}).sort((a,b)=>(a.ts||0)-(b.ts||0)),
+          'customer-admin': Object.values(threads['customer-admin']||{}).sort((a,b)=>(a.ts||0)-(b.ts||0))
+        };
+      });
+      chats=newChats;
+      if(document.getElementById('modal-chat')?.classList.contains('open')) renderChatMessages();
+    }, err=>{
+      console.error('Firebase chats sync error:', err);
+    });
+    // App-wide settings (branding & tarif) set by Admin, applied live for everyone.
+    settingsRef.on('value', snap=>{
+      const val=snap.val()||{};
+      if(val.branding) Object.assign(branding, val.branding);
+      if(val.tarif) Object.assign(tarif, val.tarif);
+      updateBrandingUI();
+      refreshActiveScreen();
+    }, err=>{
+      console.error('Firebase settings sync error:', err);
     });
   } else {
     console.warn('Firebase SDK tidak termuat (cek koneksi internet) — berjalan dalam mode lokal saja.');
@@ -415,6 +441,9 @@ try{
 // working locally (single device/session) instead of crashing.
 function fbSetOrder(order){ if(ordersRef) return ordersRef.child(order.id).set(order); }
 function fbUpdateOrder(id, patch){ if(ordersRef) return ordersRef.child(id).update(patch); }
+function fbDeleteOrder(id){ if(ordersRef) ordersRef.child(id).remove(); if(chatsRef) chatsRef.child(id).remove(); }
+function fbPushChat(orderId, threadKey, msg){ if(chatsRef) chatsRef.child(orderId).child(threadKey).push(msg); }
+function fbSetSettings(key, value){ if(settingsRef) settingsRef.child(key).set(value); }
 
 // Re-render whichever screen is currently visible so live updates (status
 // changes, driver location, etc.) show up immediately on every device.
@@ -452,7 +481,7 @@ function calcOngkir(numTempat){
 function stopsSummaryHTML(o){
   if(!o.stops||!o.stops.length) return '';
   if(o.type==='food'){
-    return o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto}${s.alamatResto?' ('+s.alamatResto+')':''} — ${s.menu||'-'}</div>`).join('');
+    return o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto}${s.alamatResto?' ('+s.alamatResto+')':''}<div style="white-space:pre-wrap;margin-left:18px">— ${(s.menu||'-').replace(/</g,'&lt;')}</div></div>`).join('');
   }
   return o.stops.map((s,i)=>`<div style="font-size:12px;color:#8B949E">📍 Tempat ${i+1}: ${s.alamatResto}</div>`).join('');
 }
@@ -484,6 +513,7 @@ function appendChat(orderId, key, msg){
   if(!chats[orderId]) chats[orderId]={'customer-driver':[],'customer-admin':[]};
   if(!chats[orderId][key]) chats[orderId][key]=[];
   chats[orderId][key].push(msg);
+  fbPushChat(orderId, key, msg);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -500,6 +530,58 @@ function showScreen(id){
     el.style.setProperty('display', el.dataset.disp||'block','important');
     window.scrollTo(0,0);
   }
+  saveAppState();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SESSION PERSISTENCE — survive page refresh by remembering which
+// screen/role/tab the user was on. Wrapped in try/catch so the app keeps
+// working even where localStorage is unavailable (e.g. sandboxed previews).
+// ═══════════════════════════════════════════════════════════
+const APP_STATE_KEY='gasojek_state';
+
+function saveAppState(){
+  try{
+    const screenEl=document.querySelector('.screen.active');
+    const screen=screenEl?screenEl.id.replace('screen-',''):'landing';
+    localStorage.setItem(APP_STATE_KEY, JSON.stringify({screen, session, cTab, dTab, aTab}));
+  }catch(e){ /* localStorage unavailable - ignore */ }
+}
+
+function clearAppState(){
+  try{ localStorage.removeItem(APP_STATE_KEY); }catch(e){}
+}
+
+// Returns true if a previous session/screen was restored.
+function restoreAppState(){
+  let st;
+  try{
+    const raw=localStorage.getItem(APP_STATE_KEY);
+    if(!raw) return false;
+    st=JSON.parse(raw);
+  }catch(e){ return false; }
+  if(!st||!st.screen||st.screen==='landing') return false;
+
+  if(st.session&&st.session.role==='driver'){
+    const d=drivers.find(x=>x.id===st.session.id);
+    if(!d||!d.active) return false; // stale/inactive driver session
+    session=st.session;
+    updateBrandingUI(); showScreen('driver'); renderDriver();
+    if(st.dTab) dSetTab(st.dTab);
+    return true;
+  }
+  if(st.session&&st.session.role==='admin'){
+    session=st.session;
+    updateBrandingUI(); showScreen('admin'); renderAdmin();
+    if(st.aTab) aSetTab(st.aTab);
+    return true;
+  }
+  if(st.screen==='customer'){
+    updateBrandingUI(); showScreen('customer'); renderCustomer();
+    if(st.cTab) cSetTab(st.cTab);
+    return true;
+  }
+  return false;
 }
 
 function goCustomer(){ updateBrandingUI(); showScreen('customer'); renderCustomer(); }
@@ -543,6 +625,7 @@ function doLogout(){
     Object.keys(driverWatchers).forEach(oid=>stopLocationSharing(Number(oid)));
   }
   session=null;
+  clearAppState();
   showScreen('landing');
 }
 
@@ -610,6 +693,7 @@ function cSetTab(tab){
   document.getElementById('ctab-order').className='btn btn-sm tab-btn '+(tab==='order'?'btn-primary':'btn-ghost');
   document.getElementById('ctab-history').className='btn btn-sm tab-btn '+(tab==='history'?'btn-primary':'btn-ghost');
   if(tab==='history') renderCHistory();
+  saveAppState();
 }
 
 function cUpdateOrderType(){
@@ -651,7 +735,7 @@ function renderCStops(){
         <div class="input-label">Alamat Lengkap *</div>
         <input class="input-field" value="${s.alamatResto}" oninput="cStops[${i}].alamatResto=this.value" placeholder="Alamat lengkap"/>
         <div class="input-label">Menu yang Dipesan</div>
-        <input class="input-field" value="${s.menu}" oninput="cStops[${i}].menu=this.value" placeholder="Nama menu"/>
+        <textarea class="input-field" rows="2" style="resize:vertical;min-height:60px;font-family:inherit" oninput="cStops[${i}].menu=this.value" placeholder="Tulis menu, satu per baris (tekan Enter untuk baris baru)">${s.menu}</textarea>
       </div>`;
     }
     return `<div class="stop-box">
@@ -721,7 +805,7 @@ function cDeleteOrder(oid){
   if(!confirm('Hapus orderan ini?')) return;
   orders=orders.filter(x=>x.id!==oid);
   delete chats[oid];
-  if(ordersRef) ordersRef.child(oid).remove();
+  fbDeleteOrder(oid);
   if(cEditingOrderId===oid) cResetOrderForm();
   updateHistCount();
   renderCHistory();
@@ -780,9 +864,8 @@ function renderCHistory(){
   if(my.length===0){ el.innerHTML='<div class="empty-msg">Belum ada orderan</div>'; return; }
   el.innerHTML=my.map(o=>{
     const hasDriver=!!o.driver;
-    const chatBtn=(o.status==='progress'||o.status==='accepted'||o.status==='done')?
-      `<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" onclick="openChatModal(${o.id},'customer','${hasDriver?'customer-driver':'customer-admin'}')">
-        💬 Chat ${hasDriver?'Driver / Admin':'Admin'}</button>`:'';
+    const chatBtn=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" onclick="openChatModal(${o.id},'customer','${hasDriver?'customer-driver':'customer-admin'}')">
+        💬 Chat ${hasDriver?'Driver / Admin':'Admin'}</button>`;
     const driverInfo=hasDriver?`<div style="background:#161B22;border-radius:8px;padding:8px;font-size:13px;margin:6px 0">
       🧑‍✈️ ${o.driver.name} • ${o.driver.phone} • ${o.driver.vehicle}</div>`:'';
     const trackBtn=(o.status==='progress'&&hasDriver)?
@@ -829,6 +912,7 @@ function dSetTab(tab){
     document.getElementById('dtab-'+t).className='btn btn-sm tab-btn '+(t===tab?'btn-primary':'btn-ghost');
   });
   dRenderTab();
+  saveAppState();
 }
 
 function dRenderTab(){
@@ -877,7 +961,16 @@ function dRenderTab(){
     <div class="flex-between">${badge('🎉 Selesai','green')}<span class="muted" style="font-size:11px">${o.date}</span></div>
     <div class="info-row" style="margin-top:6px">👤 ${o.customerName} → ${o.alamatCustomer}</div>
     <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
+    <button class="btn btn-danger btn-sm btn-block" style="margin-top:6px" onclick="dDeleteHistory(${o.id})">🗑️ Hapus dari Riwayat</button>
   </div>`).join('');
+}
+
+function dDeleteHistory(oid){
+  if(!confirm('Hapus orderan ini dari riwayat?')) return;
+  orders=orders.filter(x=>x.id!==oid);
+  delete chats[oid];
+  fbDeleteOrder(oid);
+  renderDriver();
 }
 
 function dAcceptOrder(oid){
@@ -940,6 +1033,7 @@ function aSetTab(tab){
     document.getElementById('atab-'+t).style.cssText='font-size:11px;padding:7px 4px';
   });
   aRenderTab();
+  saveAppState();
 }
 
 function aRenderTab(){
@@ -1006,7 +1100,7 @@ function aDeleteOrder(oid){
   if(!confirm('Hapus orderan ini dari riwayat?')) return;
   orders=orders.filter(x=>x.id!==oid);
   delete chats[oid];
-  if(ordersRef) ordersRef.child(oid).remove();
+  fbDeleteOrder(oid);
   renderAdmin();
 }
 
@@ -1239,7 +1333,7 @@ function aDeleteCustomer(phone){
   if(!confirm(`Hapus semua data & ${affected.length} orderan dari customer ini? Tindakan ini tidak bisa dibatalkan.`)) return;
   affected.forEach(o=>{
     delete chats[o.id];
-    if(ordersRef) ordersRef.child(o.id).remove();
+    fbDeleteOrder(o.id);
   });
   orders=orders.filter(o=>o.customerPhone!==phone);
   closeModal('modal-cust-detail');
@@ -1373,6 +1467,7 @@ function sSaveBrand(){
   branding.logoType=sPendingLogo.type;
   branding.logoImage=sPendingLogo.image;
   updateBrandingUI();
+  fbSetSettings('branding', branding);
   alert('✅ Branding diperbarui!');
 }
 
@@ -1392,6 +1487,7 @@ function sSaveTarif(){
   tarif.tempat1=parseFloat(document.getElementById('s-t1').value)||0;
   tarif.tempat2=parseFloat(document.getElementById('s-t2').value)||0;
   tarif.tempat3=parseFloat(document.getElementById('s-t3').value)||0;
+  fbSetSettings('tarif', tarif);
   alert('✅ Tarif diperbarui!');
 }
 
@@ -1430,7 +1526,7 @@ function sendChat(){
   const inp=document.getElementById('chat-input');
   const text=inp.value.trim();
   if(!text) return;
-  appendChat(chatOrderId,chatThread,{sender:chatRole,text,time:nowTime()});
+  appendChat(chatOrderId,chatThread,{sender:chatRole,text,time:nowTime(),ts:Date.now()});
   inp.value='';
   renderChatMessages();
 }
@@ -1459,6 +1555,8 @@ function renderChatModal(){
 // ═══════════════════════════════════════════════════════════
 let driverWatchers = {};   // orderId -> geolocation watch id
 let trackingOrderId = null;
+let trackOpenedAt = null;
+let trackTimer = null;
 let trackMap = null;
 let trackMarker = null;
 const LOCATION_WRITE_INTERVAL = 4000; // throttle Firebase writes (ms)
@@ -1467,7 +1565,11 @@ const LOCATION_WRITE_INTERVAL = 4000; // throttle Firebase writes (ms)
 function startLocationSharing(oid){
   if(driverWatchers[oid]!=null) return; // already sharing for this order
   if(!navigator.geolocation){ alert('Perangkat ini tidak mendukung GPS.'); return; }
+  if(!window.isSecureContext){
+    alert('⚠️ Berbagi lokasi live butuh koneksi HTTPS (atau "secure context"). Lokasi tidak akan terkirim jika halaman dibuka lewat file:// atau http://.');
+  }
   let lastWrite=0;
+  let warned=false;
   const watchId=navigator.geolocation.watchPosition(pos=>{
     const now=Date.now();
     if(now-lastWrite<LOCATION_WRITE_INTERVAL) return;
@@ -1477,6 +1579,11 @@ function startLocationSharing(oid){
     }});
   }, err=>{
     console.warn('Geolocation error:', err.message);
+    if(!warned){
+      warned=true;
+      const reasons={1:'Izin lokasi ditolak. Aktifkan izin GPS untuk situs ini di pengaturan browser.',2:'Lokasi tidak tersedia. Pastikan GPS aktif.',3:'Permintaan lokasi timeout, mencoba lagi…'};
+      alert('⚠️ Gagal mengambil lokasi GPS: '+(reasons[err.code]||err.message)+'\nCustomer/Admin tidak akan melihat posisi live sampai ini diperbaiki.');
+    }
   }, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
   driverWatchers[oid]=watchId;
 }
@@ -1500,6 +1607,7 @@ function resumeLocationSharing(){
 function openTrackModal(oid){
   trackingOrderId=oid;
   trackMarker=null;
+  trackOpenedAt=Date.now();
   openModal('modal-track');
   const statusEl=document.getElementById('track-status');
   if(typeof L==='undefined'){
@@ -1517,10 +1625,13 @@ function openTrackModal(oid){
     trackMap.invalidateSize();
     updateTrackMarker();
   },150);
+  if(trackTimer) clearInterval(trackTimer);
+  trackTimer=setInterval(updateTrackMarker,3000);
 }
 
 function closeTrackModal(){
   trackingOrderId=null;
+  if(trackTimer){ clearInterval(trackTimer); trackTimer=null; }
   closeModal('modal-track');
 }
 
@@ -1533,7 +1644,13 @@ function updateTrackMarker(){
     return;
   }
   const loc=o.driverLocation;
-  if(!loc){ statusEl.textContent='Menunggu lokasi driver…'; return; }
+  if(!loc){
+    const waited=Date.now()-(trackOpenedAt||Date.now());
+    statusEl.textContent=waited>15000
+      ?'Belum ada lokasi dari driver. Pastikan driver mengizinkan GPS & halaman dibuka via HTTPS.'
+      :'Menunggu lokasi driver…';
+    return;
+  }
   const latlng=[loc.lat,loc.lng];
   if(!trackMarker){
     const icon=L.divIcon({className:'leaflet-pulse-icon',html:'🛵',iconSize:[26,26]});
@@ -1558,7 +1675,7 @@ document.querySelector('#screen-customer .topbar button[onclick="openModal(\'mod
 cUpdateOrderType();
 updateBrandingUI();
 document.querySelectorAll('.screen').forEach(s=>{ s.dataset.disp = s.style.display || 'block'; });
-showScreen('landing');
+if(!restoreAppState()) showScreen('landing');
 </script>
 </body>
 </html>
