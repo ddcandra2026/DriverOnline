@@ -192,25 +192,20 @@
           <option value="antar">🛵 Antar Jemput</option>
         </select>
         <div id="c-stops-container"></div>
-        <div id="c-add-stop-wrap">
-          <button class="btn btn-ghost btn-sm btn-block" style="margin-bottom:12px" onclick="cAddStop()">+ Tambah Tempat (maks 3)</button>
-        </div>
+        <div class="input-label">🎯 Jumlah Tempat</div>
+        <div id="c-tempat-selector" class="tab-row" style="margin-bottom:12px"></div>
         <div id="c-jemput-wrap" style="display:none">
           <div class="input-label">📍 Titik Jemput</div>
           <input id="c-jemput" class="input-field" placeholder="Alamat penjemputan"/>
         </div>
-        <div class="input-label">🏠 Alamat Tujuan *</div>
-        <input id="c-alamat-tujuan" class="input-field" placeholder="Alamat lengkap tujuan"/>
-        <div class="input-label">📏 Estimasi Jarak (km) *</div>
-        <input id="c-jarak" class="input-field" type="number" placeholder="Contoh: 5.5" oninput="cUpdateOngkir()"/>
         <div class="input-label">📝 Catatan (opsional)</div>
         <input id="c-catatan" class="input-field" placeholder="Instruksi khusus untuk driver"/>
-        <div id="c-ongkir-box" class="ongkir-box" style="display:none">
-          <div class="muted" style="font-size:11px">Estimasi Ongkir</div>
+        <div id="c-ongkir-box" class="ongkir-box">
+          <div class="muted" style="font-size:11px">Ongkir</div>
           <div id="c-ongkir-val" style="color:#39D353;font-size:24px;font-weight:900">Rp 0</div>
           <div id="c-ongkir-detail" class="muted" style="font-size:11px"></div>
         </div>
-        <button class="btn btn-primary btn-block" onclick="cSubmitOrder()">🚀 Kirim Orderan</button>
+        <button id="c-submit-btn" class="btn btn-primary btn-block" onclick="cSubmitOrder()">🚀 Kirim Orderan</button>
       </div>
     </div>
     <!-- HISTORY -->
@@ -227,7 +222,7 @@
   <div class="topbar">
     <span id="d-topbar-logo" style="font-size:20px">🛵</span>
     <span id="d-topbar-name" style="font-weight:800;font-size:14px;flex:1">GasOjek — Driver</span>
-    <button onclick="openModal('modal-driver-profile')" style="background:none;border:none;cursor:pointer;font-size:24px">🧑‍✈️</button>
+    <button onclick="openDriverProfileModal()" style="background:none;border:none;cursor:pointer;font-size:24px" title="Edit Profil">🧑‍✈️</button>
     <button onclick="doLogout()" style="background:none;border:none;color:#F85149;cursor:pointer;font-size:12px;font-weight:600;margin-left:6px">Keluar</button>
   </div>
   <div class="page-content">
@@ -344,7 +339,7 @@
 // STATE
 // ═══════════════════════════════════════════════════════════
 let branding = { logo:'🛵', logoType:'emoji', logoImage:null, appName:'GasOjek', subtitle:'Antar cepat, harga jelas, aman terpercaya' };
-let tarif = { basePerKm:3000, pickupFee:2000, multiStopFee:5000 };
+let tarif = { tempat1:8000, tempat2:13000, tempat3:18000 }; // ongkir per jumlah Tempat (1-3), diatur Admin
 let drivers = [
   {id:'D1',name:'Budi Santoso',phone:'0856-7890-1234',vehicle:'Honda Vario - B 4567 XY',rating:4.8,username:'budi',password:'budi123',active:true},
   {id:'D2',name:'Riko Saputra',phone:'0821-1111-2222',vehicle:'Yamaha NMAX - D 1234 AB',rating:4.6,username:'riko',password:'riko456',active:true},
@@ -357,6 +352,7 @@ let session = null; // { role, id, name }
 let custProfile = { name:'', phone:'', address:'' };
 let custProfileFilled = false;
 let cStops = [{ namaResto:'', alamatResto:'', menu:'' }];
+let cEditingOrderId = null; // set when customer is editing an existing pending order
 let cTab = 'order';
 
 // Driver local state
@@ -365,6 +361,7 @@ let dTab = 'available';
 // Admin local state
 let aTab = 'orders';
 let addingDriver = false;
+let editingDriverId = null; // id of driver currently being edited in admin panel
 let sPendingLogo = { type:'emoji', image:null }; // working copy while editing branding logo in settings
 
 // Chat modal state
@@ -443,10 +440,21 @@ function nowTime(){ return new Date().toLocaleTimeString('id-ID',{hour:'2-digit'
 function nowDate(){ return new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); }
 function fmtRp(n){ return 'Rp '+Number(n).toLocaleString('id-ID'); }
 
-function calcOngkir(jarak, numStops){
-  const rate = jarak<=5 ? tarif.basePerKm : jarak<=15 ? tarif.basePerKm-500 : tarif.basePerKm-1000;
-  const extra = numStops>1 ? (numStops-1)*tarif.multiStopFee : 0;
-  return Math.round(jarak*rate + tarif.pickupFee + extra);
+// Ongkir is now a flat price set by Admin per number of "Tempat" (1-3),
+// not based on distance anymore.
+function calcOngkir(numTempat){
+  const n=Math.min(3,Math.max(1,numTempat||1));
+  return tarif['tempat'+n]||0;
+}
+
+// Renders the list of "Tempat" (stops) for an order — restaurants for
+// food orders, destination addresses for antar-jemput orders.
+function stopsSummaryHTML(o){
+  if(!o.stops||!o.stops.length) return '';
+  if(o.type==='food'){
+    return o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto}${s.alamatResto?' ('+s.alamatResto+')':''} — ${s.menu||'-'}</div>`).join('');
+  }
+  return o.stops.map((s,i)=>`<div style="font-size:12px;color:#8B949E">📍 Tempat ${i+1}: ${s.alamatResto}</div>`).join('');
 }
 
 function badge(label, color){
@@ -605,45 +613,62 @@ function cSetTab(tab){
 }
 
 function cUpdateOrderType(){
-  const type=document.getElementById('c-order-type').value;
-  document.getElementById('c-stops-container').style.display=type==='food'?'block':'none';
-  document.getElementById('c-add-stop-wrap').style.display=type==='food'?'block':'none';
-  document.getElementById('c-jemput-wrap').style.display=type==='antar'?'block':'none';
+  renderTempatSelector();
+  renderCStops();
+  cUpdateOngkir();
+}
+
+// Segmented "Jumlah Tempat" selector (1-3). Selecting a number resizes
+// cStops to match and immediately shows the ongkir for that count.
+function renderTempatSelector(){
+  const el=document.getElementById('c-tempat-selector');
+  if(!el) return;
+  el.innerHTML=[1,2,3].map(n=>
+    `<button class="btn btn-sm tab-btn ${cStops.length===n?'btn-primary':'btn-ghost'}" onclick="cSetNumTempat(${n})">${n} Tempat</button>`
+  ).join('');
+  document.getElementById('c-jemput-wrap').style.display=
+    document.getElementById('c-order-type').value==='antar'?'block':'none';
+}
+
+function cSetNumTempat(n){
+  n=Math.max(1,Math.min(3,n));
+  while(cStops.length<n) cStops.push({namaResto:'',alamatResto:'',menu:''});
+  while(cStops.length>n) cStops.pop();
+  renderTempatSelector();
+  renderCStops();
   cUpdateOngkir();
 }
 
 function renderCStops(){
+  const type=document.getElementById('c-order-type').value;
   const c=document.getElementById('c-stops-container');
-  c.innerHTML=cStops.map((s,i)=>`
-    <div class="stop-box">
-      <div class="flex-between" style="margin-bottom:8px">
-        ${badge('Tempat '+(i+1),'blue')}
-        ${cStops.length>1?`<button onclick="cRemoveStop(${i})" style="background:none;border:none;color:#F85149;cursor:pointer;font-size:18px">✕</button>`:''}
-      </div>
-      <div class="input-label">Nama Restoran / Warung *</div>
-      <input class="input-field" value="${s.namaResto}" oninput="cStops[${i}].namaResto=this.value" placeholder="Nama tempat makan"/>
-      <div class="input-label">Alamat Lengkap *</div>
-      <input class="input-field" value="${s.alamatResto}" oninput="cStops[${i}].alamatResto=this.value" placeholder="Alamat lengkap"/>
-      <div class="input-label">Menu yang Dipesan</div>
-      <input class="input-field" value="${s.menu}" oninput="cStops[${i}].menu=this.value" placeholder="Nama menu"/>
-    </div>`).join('');
-  document.getElementById('c-add-stop-wrap').style.display=cStops.length<3?'block':'none';
+  c.innerHTML=cStops.map((s,i)=>{
+    if(type==='food'){
+      return `<div class="stop-box">
+        <div class="flex-between" style="margin-bottom:8px">${badge('Tempat '+(i+1),'blue')}</div>
+        <div class="input-label">Nama Restoran / Warung *</div>
+        <input class="input-field" value="${s.namaResto}" oninput="cStops[${i}].namaResto=this.value" placeholder="Nama tempat makan"/>
+        <div class="input-label">Alamat Lengkap *</div>
+        <input class="input-field" value="${s.alamatResto}" oninput="cStops[${i}].alamatResto=this.value" placeholder="Alamat lengkap"/>
+        <div class="input-label">Menu yang Dipesan</div>
+        <input class="input-field" value="${s.menu}" oninput="cStops[${i}].menu=this.value" placeholder="Nama menu"/>
+      </div>`;
+    }
+    return `<div class="stop-box">
+      <div class="flex-between" style="margin-bottom:8px">${badge('Tempat '+(i+1),'blue')}</div>
+      <div class="input-label">Alamat Tujuan *</div>
+      <input class="input-field" value="${s.alamatResto}" oninput="cStops[${i}].alamatResto=this.value" placeholder="Alamat lengkap tujuan"/>
+    </div>`;
+  }).join('');
 }
 
-function cAddStop(){ if(cStops.length<3){ cStops.push({namaResto:'',alamatResto:'',menu:''}); renderCStops(); cUpdateOngkir(); } }
-function cRemoveStop(i){ if(cStops.length>1){ cStops.splice(i,1); renderCStops(); cUpdateOngkir(); } }
-
+// Ongkir is a flat price set by Admin per number of Tempat (1-3) — no
+// distance input needed, the price appears immediately below the selector.
 function cUpdateOngkir(){
-  const type=document.getElementById('c-order-type').value;
-  const jarak=parseFloat(document.getElementById('c-jarak').value)||0;
-  const numStops=type==='food'?cStops.length:1;
-  const box=document.getElementById('c-ongkir-box');
-  if(jarak>0){
-    const ongkir=calcOngkir(jarak,numStops);
-    document.getElementById('c-ongkir-val').textContent=fmtRp(ongkir);
-    document.getElementById('c-ongkir-detail').textContent=jarak+' km'+(numStops>1?' + '+(numStops-1)+' stop tambahan':'');
-    box.style.display='block';
-  } else { box.style.display='none'; }
+  const n=cStops.length;
+  const ongkir=calcOngkir(n);
+  document.getElementById('c-ongkir-val').textContent=fmtRp(ongkir);
+  document.getElementById('c-ongkir-detail').textContent=n+' Tempat';
 }
 
 function cSaveProfile(){
@@ -663,21 +688,74 @@ function openCustProfileModal(){
   openModal('modal-cust-profile');
 }
 
+function cResetOrderForm(){
+  cEditingOrderId=null;
+  cStops=[{namaResto:'',alamatResto:'',menu:''}];
+  document.getElementById('c-order-type').value='food';
+  document.getElementById('c-jemput').value='';
+  document.getElementById('c-catatan').value='';
+  const btn=document.getElementById('c-submit-btn');
+  if(btn) btn.textContent='🚀 Kirim Orderan';
+  cUpdateOrderType();
+}
+
+// Load an existing (pending) order back into the form for editing.
+function cEditOrder(oid){
+  const o=orders.find(x=>x.id===oid);
+  if(!o||o.status!=='pending') return;
+  cEditingOrderId=oid;
+  document.getElementById('c-order-type').value=o.type;
+  cStops=o.stops.map(s=>({...s}));
+  document.getElementById('c-jemput').value=o.jemput||'';
+  document.getElementById('c-catatan').value=o.catatan||'';
+  cUpdateOrderType();
+  const btn=document.getElementById('c-submit-btn');
+  if(btn) btn.textContent='💾 Simpan Perubahan';
+  cSetTab('order');
+  window.scrollTo(0,0);
+}
+
+function cDeleteOrder(oid){
+  const o=orders.find(x=>x.id===oid);
+  if(!o||o.status!=='pending') return;
+  if(!confirm('Hapus orderan ini?')) return;
+  orders=orders.filter(x=>x.id!==oid);
+  delete chats[oid];
+  if(ordersRef) ordersRef.child(oid).remove();
+  if(cEditingOrderId===oid) cResetOrderForm();
+  updateHistCount();
+  renderCHistory();
+}
+
 function cSubmitOrder(){
   const type=document.getElementById('c-order-type').value;
   if(!custProfileFilled) return alert('Lengkapi profil terlebih dahulu!');
-  const alamat=document.getElementById('c-alamat-tujuan').value.trim();
-  const jarak=parseFloat(document.getElementById('c-jarak').value)||0;
-  if(!alamat||jarak<=0) return alert('Lengkapi alamat tujuan dan estimasi jarak!');
   if(type==='food'&&cStops.some(s=>!s.namaResto||!s.alamatResto)) return alert('Lengkapi detail semua tempat makan!');
-  const numStops=type==='food'?cStops.length:1;
-  const ongkir=calcOngkir(jarak,numStops);
+  if(type==='antar'&&cStops.some(s=>!s.alamatResto)) return alert('Lengkapi semua alamat tujuan!');
+  if(type==='antar'&&!document.getElementById('c-jemput').value.trim()) return alert('Lengkapi titik jemput!');
+  const ongkir=calcOngkir(cStops.length);
   const jemput=document.getElementById('c-jemput').value.trim();
   const catatan=document.getElementById('c-catatan').value.trim();
+  const stops=cStops.map(s=>({...s}));
+  const alamatCustomer=type==='food'?custProfile.address:stops.map(s=>s.alamatResto).join(' / ');
+
+  if(cEditingOrderId!=null){
+    const o=orders.find(x=>x.id===cEditingOrderId);
+    if(o){
+      Object.assign(o,{type,stops,alamatCustomer,catatan,ongkir,jemput});
+      fbUpdateOrder(o.id,{type,stops,alamatCustomer,catatan,ongkir,jemput});
+    }
+    cResetOrderForm();
+    updateHistCount();
+    cSetTab('history');
+    alert('✅ Orderan diperbarui!');
+    return;
+  }
+
   const id=Date.now();
   const order={
-    id, type, stops:[...cStops.map(s=>({...s}))],
-    alamatCustomer:alamat, jarak, catatan, ongkir,
+    id, type, stops,
+    alamatCustomer, catatan, ongkir,
     customerName:custProfile.name, customerPhone:custProfile.phone,
     customerAddress:custProfile.address,
     jemput, status:'pending', createdAt:nowTime(), date:nowDate(), driver:null
@@ -685,12 +763,7 @@ function cSubmitOrder(){
   orders.unshift(order);
   fbSetOrder(order);
   chats[id]={'customer-driver':[],'customer-admin':[]};
-  cStops=[{namaResto:'',alamatResto:'',menu:''}];
-  document.getElementById('c-alamat-tujuan').value='';
-  document.getElementById('c-jarak').value='';
-  document.getElementById('c-catatan').value='';
-  document.getElementById('c-ongkir-box').style.display='none';
-  renderCStops();
+  cResetOrderForm();
   updateHistCount();
   cSetTab('history');
   alert('✅ Orderan terkirim! Tunggu konfirmasi admin.');
@@ -714,7 +787,12 @@ function renderCHistory(){
       🧑‍✈️ ${o.driver.name} • ${o.driver.phone} • ${o.driver.vehicle}</div>`:'';
     const trackBtn=(o.status==='progress'&&hasDriver)?
       `<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px;border-color:#58A6FF;color:#58A6FF" onclick="openTrackModal(${o.id})">🗺️ Lacak Driver Live</button>`:'';
-    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} — ${s.menu||'-'}</div>`).join(''):'';
+    const editDeleteBtns=o.status==='pending'?
+      `<div class="grid-2" style="gap:8px;margin-top:6px">
+        <button class="btn btn-ghost btn-sm" onclick="cEditOrder(${o.id})">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="cDeleteOrder(${o.id})">🗑️ Hapus</button>
+      </div>`:'';
+    const stopsHtml=stopsSummaryHTML(o);
     return `<div class="card">
       <div class="flex-between" style="margin-bottom:6px">${statusBadge(o.status)}<span class="muted" style="font-size:11px">${o.date} ${o.createdAt}</span></div>
       ${statusTracker(o.status)}
@@ -722,7 +800,7 @@ function renderCHistory(){
       <div class="info-row">📍 ${o.alamatCustomer}</div>
       ${stopsHtml}
       <div style="color:#39D353;font-weight:800;font-size:16px;margin:6px 0">${fmtRp(o.ongkir)}</div>
-      ${driverInfo}${chatBtn}${trackBtn}
+      ${driverInfo}${chatBtn}${trackBtn}${editDeleteBtns}
     </div>`;
   }).join('');
 }
@@ -763,11 +841,11 @@ function dRenderTab(){
   const avEl=document.getElementById('d-tab-available');
   if(available.length===0){ avEl.innerHTML='<div class="empty-msg">Tidak ada orderan tersedia</div>'; }
   else avEl.innerHTML=available.map(o=>{
-    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} (${s.alamatResto}) — ${s.menu||'-'}</div>`).join(''):'';
+    const stopsHtml=stopsSummaryHTML(o);
     return `<div class="card">
       <div class="flex-between" style="margin-bottom:6px">${badge(o.type==='food'?'🍔 Makanan':'🛵 Antar','blue')}<span class="muted" style="font-size:11px">${o.createdAt}</span></div>
       <div style="font-weight:600">👤 ${o.customerName} • ${o.customerPhone}</div>
-      <div class="info-row">📍 ${o.alamatCustomer} • ${o.jarak} km</div>
+      <div class="info-row">📍 ${o.alamatCustomer} • ${o.stops.length} Tempat</div>
       ${stopsHtml}
       ${o.catatan?`<div style="font-size:12px;color:#F0A500">📝 ${o.catatan}</div>`:''}
       <div style="color:#39D353;font-weight:900;font-size:18px;margin:8px 0">${fmtRp(o.ongkir)}</div>
@@ -779,7 +857,7 @@ function dRenderTab(){
   const acEl=document.getElementById('d-tab-active');
   if(myActive.length===0){ acEl.innerHTML='<div class="empty-msg">Tidak ada orderan aktif</div>'; }
   else acEl.innerHTML=myActive.map(o=>{
-    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} — ${s.menu||'-'}</div>`).join(''):'';
+    const stopsHtml=stopsSummaryHTML(o);
     return `<div class="card">
       <div style="font-weight:600">👤 ${o.customerName} • ${o.customerPhone}</div>
       <div class="info-row">📍 ${o.alamatCustomer}</div>
@@ -879,11 +957,11 @@ function aRenderOrders(){
   html+=`<div class="section-title">⏳ Orderan Masuk (${pending.length})</div>`;
   if(pending.length===0) html+='<div class="card"><div class="muted" style="text-align:center">Tidak ada orderan pending</div></div>';
   html+=pending.map(o=>{
-    const stopsHtml=o.type==='food'?o.stops.map(s=>`<div style="font-size:12px;color:#8B949E">🏪 ${s.namaResto} (${s.alamatResto}) — ${s.menu||'-'}</div>`).join(''):'';
+    const stopsHtml=stopsSummaryHTML(o);
     return `<div class="card">
       <div class="flex-between" style="margin-bottom:6px">${badge(o.type==='food'?'🍔 Makanan':'🛵 Antar','blue')}<span class="muted" style="font-size:11px">#${String(o.id).slice(-4)} • ${o.createdAt}</span></div>
       <div style="font-weight:600">👤 ${o.customerName} • ${o.customerPhone}</div>
-      <div class="info-row">📍 ${o.alamatCustomer} • ${o.jarak} km</div>
+      <div class="info-row">📍 ${o.alamatCustomer} • ${o.stops.length} Tempat</div>
       ${stopsHtml}
       ${o.catatan?`<div style="font-size:12px;color:#F0A500">📝 ${o.catatan}</div>`:''}
       <div style="color:#39D353;font-weight:900;font-size:18px;margin:8px 0">${fmtRp(o.ongkir)}</div>
@@ -916,30 +994,45 @@ function aRenderOrders(){
     <div class="info-row" style="margin-top:4px">👤 ${o.customerName} → ${o.alamatCustomer}</div>
     ${o.driver?`<div class="info-row">🧑‍✈️ ${o.driver.name}</div>`:''}
     <div style="color:${o.status==='done'?'#39D353':'#F85149'};font-weight:700">${fmtRp(o.ongkir)}</div>
+    <button class="btn btn-danger btn-sm btn-block" style="margin-top:6px" onclick="aDeleteOrder(${o.id})">🗑️ Hapus dari Riwayat</button>
   </div>`).join('');
 
   document.getElementById('a-tab-orders').innerHTML=html;
+}
+
+function aDeleteOrder(oid){
+  const o=orders.find(x=>x.id===oid);
+  if(!o) return;
+  if(!confirm('Hapus orderan ini dari riwayat?')) return;
+  orders=orders.filter(x=>x.id!==oid);
+  delete chats[oid];
+  if(ordersRef) ordersRef.child(oid).remove();
+  renderAdmin();
 }
 
 function aAccept(oid){ const o=orders.find(x=>x.id===oid); if(o){ o.status='accepted'; fbUpdateOrder(oid,{status:'accepted'}); renderAdmin(); } }
 function aReject(oid){ const o=orders.find(x=>x.id===oid); if(o){ o.status='rejected'; fbUpdateOrder(oid,{status:'rejected'}); renderAdmin(); } }
 
 function aRenderDrivers(){
+  const editing=editingDriverId?drivers.find(d=>d.id===editingDriverId):null;
   let html=`<div class="flex-between" style="margin-bottom:10px">
     <div class="section-title" style="margin:0">🧑‍✈️ Daftar Driver (${drivers.length})</div>
     <button class="btn btn-primary btn-sm" onclick="aToggleAddDriver()">+ Tambah Driver</button>
   </div>`;
   html+=`<div id="a-add-driver-form" style="display:${addingDriver?'block':'none'}">
     <div class="card" style="border-color:#39D353">
-      <div style="font-weight:700;color:#39D353;margin-bottom:10px">Tambah Driver Baru</div>
-      <div class="input-label">Nama Lengkap *</div><input id="nd-name" class="input-field" placeholder="Nama driver"/>
-      <div class="input-label">No. HP</div><input id="nd-phone" class="input-field" placeholder="08xx-xxxx-xxxx"/>
-      <div class="input-label">Kendaraan</div><input id="nd-vehicle" class="input-field" placeholder="Honda Vario - B 1234 XY"/>
+      <div style="font-weight:700;color:#39D353;margin-bottom:10px">${editing?'✏️ Edit Driver':'Tambah Driver Baru'}</div>
+      <div class="input-label">Nama Lengkap *</div><input id="nd-name" class="input-field" value="${editing?editing.name:''}" placeholder="Nama driver"/>
+      <div class="input-label">No. HP</div><input id="nd-phone" class="input-field" value="${editing?editing.phone:''}" placeholder="08xx-xxxx-xxxx"/>
+      <div class="input-label">Kendaraan</div><input id="nd-vehicle" class="input-field" value="${editing?editing.vehicle:''}" placeholder="Honda Vario - B 1234 XY"/>
       <div class="grid-2" style="gap:8px">
-        <div><div class="input-label">Username *</div><input id="nd-user" class="input-field" placeholder="username"/></div>
-        <div><div class="input-label">Password *</div><input id="nd-pass" class="input-field" placeholder="password"/></div>
+        <div><div class="input-label">Username *</div><input id="nd-user" class="input-field" value="${editing?editing.username:''}" placeholder="username"/></div>
+        <div><div class="input-label">Password *</div><input id="nd-pass" class="input-field" value="${editing?editing.password:''}" placeholder="password"/></div>
       </div>
-      <button class="btn btn-primary btn-block" onclick="aSaveDriver()">Simpan Driver</button>
+      <div class="grid-2" style="gap:8px">
+        <button class="btn btn-ghost btn-block" onclick="aToggleAddDriver()">Batal</button>
+        <button class="btn btn-primary btn-block" onclick="aSaveDriver()">${editing?'Update Driver':'Simpan Driver'}</button>
+      </div>
     </div>
   </div>`;
   html+=drivers.map(d=>{
@@ -963,16 +1056,40 @@ function aRenderDrivers(){
           <div class="muted" style="font-size:11px">Rp ${(drRev/1000).toFixed(0)}K</div>
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:8px">
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button class="btn ${d.active?'btn-danger':'btn-ghost'} btn-sm" onclick="event.stopPropagation();aToggleDriver('${d.id}')">${d.active?'Nonaktifkan':'Aktifkan'}</button>
         <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();aShowDriverDetail('${d.id}')">📊 Statistik</button>
+        <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();aEditDriver('${d.id}')">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();aDeleteDriver('${d.id}')">🗑️ Hapus</button>
       </div>
     </div>`;
   }).join('');
   document.getElementById('a-tab-drivers').innerHTML=html;
 }
 
-function aToggleAddDriver(){ addingDriver=!addingDriver; aRenderDrivers(); }
+function aToggleAddDriver(){
+  addingDriver=!addingDriver;
+  if(!addingDriver) editingDriverId=null;
+  aRenderDrivers();
+}
+
+function aEditDriver(id){
+  editingDriverId=id;
+  addingDriver=true;
+  aRenderDrivers();
+  window.scrollTo(0,0);
+}
+
+function aDeleteDriver(id){
+  const d=drivers.find(x=>x.id===id);
+  if(!d) return;
+  const hasActive=orders.some(o=>o.driver&&o.driver.id===id&&o.status==='progress');
+  if(hasActive) return alert('Driver ini masih memiliki orderan aktif. Selesaikan dulu sebelum menghapus.');
+  if(!confirm(`Hapus driver "${d.name}"?`)) return;
+  drivers=drivers.filter(x=>x.id!==id);
+  if(editingDriverId===id){ editingDriverId=null; addingDriver=false; }
+  renderAdmin();
+}
 
 function aSaveDriver(){
   const name=document.getElementById('nd-name').value.trim();
@@ -981,10 +1098,19 @@ function aSaveDriver(){
   const user=document.getElementById('nd-user').value.trim();
   const pass=document.getElementById('nd-pass').value.trim();
   if(!name||!user||!pass) return alert('Lengkapi semua field wajib!');
-  if(drivers.find(d=>d.username===user)) return alert('Username sudah dipakai!');
-  drivers.push({id:'D'+Date.now(),name,phone,vehicle,username:user,password:pass,active:true});
-  addingDriver=false;
-  alert(`✅ Driver ${name} ditambahkan!\nUsername: ${user}\nPassword: ${pass}`);
+  const dup=drivers.find(d=>d.username===user&&d.id!==editingDriverId);
+  if(dup) return alert('Username sudah dipakai!');
+  if(editingDriverId){
+    const d=drivers.find(x=>x.id===editingDriverId);
+    if(d) Object.assign(d,{name,phone,vehicle,username:user,password:pass});
+    editingDriverId=null;
+    addingDriver=false;
+    alert(`✅ Driver ${name} diperbarui!`);
+  } else {
+    drivers.push({id:'D'+Date.now(),name,phone,vehicle,username:user,password:pass,active:true});
+    addingDriver=false;
+    alert(`✅ Driver ${name} ditambahkan!\nUsername: ${user}\nPassword: ${pass}`);
+  }
   renderAdmin();
 }
 
@@ -1068,15 +1194,56 @@ function aShowCustomerDetail(phone){
         ${badge('Rp '+(total/1000).toFixed(0)+'K Total','yellow')}
       </div>
     </div>
+    <div class="card" style="border-color:#39D353">
+      <div class="section-title" style="margin-bottom:8px">✏️ Edit Data Customer</div>
+      <div class="input-label">Nama</div><input id="cu-name" class="input-field" value="${c.name}"/>
+      <div class="input-label">No. HP</div><input id="cu-phone" class="input-field" value="${c.phone}"/>
+      <div class="input-label">Alamat</div><input id="cu-address" class="input-field" value="${c.address||''}"/>
+      <div class="grid-2" style="gap:8px;margin-top:6px">
+        <button class="btn btn-primary btn-block" onclick="aSaveCustomerEdit('${c.phone}')">💾 Simpan</button>
+        <button class="btn btn-danger btn-block" onclick="aDeleteCustomer('${c.phone}')">🗑️ Hapus Semua Data</button>
+      </div>
+    </div>
     <div class="section-title">📋 History Orderan (${c.orders.length})</div>
     ${c.orders.map(o=>`
       <div class="card" style="opacity:.9">
         <div class="flex-between" style="margin-bottom:4px">${statusBadge(o.status)}<span class="muted" style="font-size:11px">${o.date} ${o.createdAt}</span></div>
-        <div class="info-row">📍 ${o.alamatCustomer} • ${o.jarak} km</div>
+        <div class="info-row">📍 ${o.alamatCustomer} • ${o.stops.length} Tempat</div>
         ${o.driver?`<div class="info-row">🧑‍✈️ ${o.driver.name}</div>`:''}
         <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
       </div>`).join('')}`;
   openModal('modal-cust-detail');
+}
+
+// Customer records are derived from `orders`, so "editing a customer" means
+// updating that info on every one of their orders (local + Firebase).
+function aSaveCustomerEdit(oldPhone){
+  const name=document.getElementById('cu-name').value.trim();
+  const phone=document.getElementById('cu-phone').value.trim();
+  const address=document.getElementById('cu-address').value.trim();
+  if(!name||!phone) return alert('Nama dan No. HP wajib diisi!');
+  orders.forEach(o=>{
+    if(o.customerPhone===oldPhone){
+      o.customerName=name; o.customerPhone=phone; o.customerAddress=address;
+      fbUpdateOrder(o.id,{customerName:name,customerPhone:phone,customerAddress:address});
+    }
+  });
+  if(custProfile.phone===oldPhone){ custProfile={name,phone,address}; }
+  closeModal('modal-cust-detail');
+  renderAdmin();
+  alert('✅ Data customer diperbarui!');
+}
+
+function aDeleteCustomer(phone){
+  const affected=orders.filter(o=>o.customerPhone===phone);
+  if(!confirm(`Hapus semua data & ${affected.length} orderan dari customer ini? Tindakan ini tidak bisa dibatalkan.`)) return;
+  affected.forEach(o=>{
+    delete chats[o.id];
+    if(ordersRef) ordersRef.child(o.id).remove();
+  });
+  orders=orders.filter(o=>o.customerPhone!==phone);
+  closeModal('modal-cust-detail');
+  renderAdmin();
 }
 
 function aRenderSettings(){
@@ -1105,10 +1272,11 @@ function aRenderSettings(){
       <button class="btn btn-primary btn-block" onclick="sSaveBrand()">💾 Simpan Branding</button>
     </div>
     <div class="card">
-      <div class="section-title">⚙️ Konfigurasi Tarif Ongkir</div>
-      <div class="input-label">Biaya per KM (Rp)</div><input id="s-bpkm" class="input-field" type="number" value="${tarif.basePerKm}" oninput="sPreviewTarif()"/>
-      <div class="input-label">Biaya Pickup Dasar (Rp)</div><input id="s-bpf" class="input-field" type="number" value="${tarif.pickupFee}" oninput="sPreviewTarif()"/>
-      <div class="input-label">Biaya Tambahan per Stop (Rp)</div><input id="s-msf" class="input-field" type="number" value="${tarif.multiStopFee}" oninput="sPreviewTarif()"/>
+      <div class="section-title">⚙️ Konfigurasi Ongkir per Jumlah Tempat</div>
+      <div class="muted" style="font-size:12px;margin-bottom:8px">Customer memilih jumlah Tempat (1-3) saat order, dan ongkir langsung muncul sesuai harga yang kamu tentukan di sini.</div>
+      <div class="input-label">Ongkir untuk 1 Tempat (Rp)</div><input id="s-t1" class="input-field" type="number" value="${tarif.tempat1}" oninput="sPreviewTarif()"/>
+      <div class="input-label">Ongkir untuk 2 Tempat (Rp)</div><input id="s-t2" class="input-field" type="number" value="${tarif.tempat2}" oninput="sPreviewTarif()"/>
+      <div class="input-label">Ongkir untuk 3 Tempat (Rp)</div><input id="s-t3" class="input-field" type="number" value="${tarif.tempat3}" oninput="sPreviewTarif()"/>
       <div class="tarif-preview" id="s-tarif-preview"></div>
       <button class="btn btn-primary btn-block" onclick="sSaveTarif()">💾 Simpan Tarif</button>
     </div>
@@ -1209,21 +1377,21 @@ function sSaveBrand(){
 }
 
 function sPreviewTarif(){
-  const bpkm=parseFloat(document.getElementById('s-bpkm').value)||0;
-  const bpf=parseFloat(document.getElementById('s-bpf').value)||0;
-  const msf=parseFloat(document.getElementById('s-msf').value)||0;
+  const t1=parseFloat(document.getElementById('s-t1').value)||0;
+  const t2=parseFloat(document.getElementById('s-t2').value)||0;
+  const t3=parseFloat(document.getElementById('s-t3').value)||0;
   const el=document.getElementById('s-tarif-preview');
   if(!el) return;
-  el.innerHTML=`<div style="font-weight:700;color:#E6EDF3;margin-bottom:4px">Preview (5 km):</div>
-    <div>• 1 stop → ${fmtRp(5*bpkm+bpf)}</div>
-    <div>• 2 stop → ${fmtRp(5*bpkm+bpf+msf)}</div>
-    <div>• 3 stop → ${fmtRp(5*bpkm+bpf+2*msf)}</div>`;
+  el.innerHTML=`<div style="font-weight:700;color:#E6EDF3;margin-bottom:4px">Preview Ongkir:</div>
+    <div>• 1 Tempat → ${fmtRp(t1)}</div>
+    <div>• 2 Tempat → ${fmtRp(t2)}</div>
+    <div>• 3 Tempat → ${fmtRp(t3)}</div>`;
 }
 
 function sSaveTarif(){
-  tarif.basePerKm=parseFloat(document.getElementById('s-bpkm').value)||0;
-  tarif.pickupFee=parseFloat(document.getElementById('s-bpf').value)||0;
-  tarif.multiStopFee=parseFloat(document.getElementById('s-msf').value)||0;
+  tarif.tempat1=parseFloat(document.getElementById('s-t1').value)||0;
+  tarif.tempat2=parseFloat(document.getElementById('s-t2').value)||0;
+  tarif.tempat3=parseFloat(document.getElementById('s-t3').value)||0;
   alert('✅ Tarif diperbarui!');
 }
 
@@ -1388,7 +1556,6 @@ document.querySelector('#screen-customer .topbar button[onclick="openModal(\'mod
   ?.setAttribute('onclick','openCustProfileModal()');
 
 cUpdateOrderType();
-renderCStops();
 updateBrandingUI();
 document.querySelectorAll('.screen').forEach(s=>{ s.dataset.disp = s.style.display || 'block'; });
 showScreen('landing');
