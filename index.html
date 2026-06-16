@@ -225,13 +225,17 @@
   </div>
   <div class="page-content">
     <div class="grid-3" style="margin-bottom:14px" id="d-stats"></div>
-    <div class="tab-row">
-      <button class="btn btn-primary btn-sm tab-btn" id="dtab-available" onclick="dSetTab('available')">📬 Tersedia</button>
+    <div class="tab-row" style="flex-wrap:wrap;gap:6px">
+      <button class="btn btn-primary btn-sm tab-btn" id="dtab-available" onclick="dSetTab('available')">📬 Orderan</button>
       <button class="btn btn-ghost btn-sm tab-btn" id="dtab-active" onclick="dSetTab('active')">🛵 Aktif</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-broadcast" onclick="dSetTab('broadcast')">📢 Info</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-groupchat" onclick="dSetTab('groupchat')">💬 Chat</button>
       <button class="btn btn-ghost btn-sm tab-btn" id="dtab-history" onclick="dSetTab('history')">📋 Riwayat</button>
     </div>
     <div id="d-tab-available"><div class="empty-msg">Tidak ada orderan tersedia</div></div>
     <div id="d-tab-active" style="display:none"><div class="empty-msg">Tidak ada orderan aktif</div></div>
+    <div id="d-tab-broadcast" style="display:none"><div class="empty-msg">Belum ada info dari admin</div></div>
+    <div id="d-tab-groupchat" style="display:none"></div>
     <div id="d-tab-history" style="display:none"><div class="empty-msg">Belum ada riwayat</div></div>
   </div>
 </div>
@@ -247,15 +251,19 @@
   </div>
   <div class="page-content">
     <div class="stat-grid" id="a-stats"></div>
-    <div class="grid-4" style="margin-bottom:14px">
-      <button class="btn btn-primary btn-sm" id="atab-orders" onclick="aSetTab('orders')" style="font-size:11px;padding:7px 4px">📦 Order</button>
-      <button class="btn btn-ghost btn-sm" id="atab-drivers" onclick="aSetTab('drivers')" style="font-size:11px;padding:7px 4px">🧑‍✈️ Driver</button>
-      <button class="btn btn-ghost btn-sm" id="atab-customers" onclick="aSetTab('customers')" style="font-size:11px;padding:7px 4px">👤 Customer</button>
-      <button class="btn btn-ghost btn-sm" id="atab-settings" onclick="aSetTab('settings')" style="font-size:11px;padding:7px 4px">⚙️ Setting</button>
+    <div style="display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" id="atab-orders" onclick="aSetTab('orders')" style="font-size:10px;padding:7px 5px;flex:1">📦 Order</button>
+      <button class="btn btn-ghost btn-sm" id="atab-drivers" onclick="aSetTab('drivers')" style="font-size:10px;padding:7px 5px;flex:1">🧑‍✈️ Driver</button>
+      <button class="btn btn-ghost btn-sm" id="atab-customers" onclick="aSetTab('customers')" style="font-size:10px;padding:7px 5px;flex:1">👤 Customer</button>
+      <button class="btn btn-ghost btn-sm" id="atab-broadcast" onclick="aSetTab('broadcast')" style="font-size:10px;padding:7px 5px;flex:1">📢 Broadcast</button>
+      <button class="btn btn-ghost btn-sm" id="atab-groupchat" onclick="aSetTab('groupchat')" style="font-size:10px;padding:7px 5px;flex:1">💬 Chat</button>
+      <button class="btn btn-ghost btn-sm" id="atab-settings" onclick="aSetTab('settings')" style="font-size:10px;padding:7px 5px;flex:1">⚙️ Setting</button>
     </div>
     <div id="a-tab-orders"></div>
     <div id="a-tab-drivers" style="display:none"></div>
     <div id="a-tab-customers" style="display:none"></div>
+    <div id="a-tab-broadcast" style="display:none"></div>
+    <div id="a-tab-groupchat" style="display:none"></div>
     <div id="a-tab-settings" style="display:none"></div>
   </div>
 </div>
@@ -344,6 +352,9 @@ let drivers = [
 ];
 let orders = [];
 let chats = {}; // { orderId: { 'customer-driver':[], 'customer-admin':[] } }
+let broadcasts = []; // [{ id, text, ts, time, date }] — admin-only writes, all drivers read
+let groupChats = []; // [{ sender:'admin'|'driver', driverId, driverName, text, ts, time }]
+let dChatMode = 'admin'; // driver's selected chat target: 'all' (group) or 'admin' (private)
 let session = null; // { role, id, name }
 
 // Customer local state
@@ -386,7 +397,7 @@ const firebaseConfig = {
   messagingSenderId: "898706383395",
   appId: "1:898706383395:web:6457b486ec667abc80c796"
 };
-let db=null, ordersRef=null, chatsRef=null, settingsRef=null;
+let db=null, ordersRef=null, chatsRef=null, settingsRef=null, broadcastRef=null, groupChatRef=null;
 try{
   if(typeof firebase!=='undefined'){
     firebase.initializeApp(firebaseConfig);
@@ -394,17 +405,17 @@ try{
     ordersRef=db.ref('orders');
     chatsRef=db.ref('chats');
     settingsRef=db.ref('settings');
-    // Local `orders` array mirrors the `orders/{id}` node in Realtime Database.
-    // Every create/update goes through fbSetOrder / fbUpdateOrder; this listener
-    // then refreshes the local cache + re-renders the active screen for everyone.
+    broadcastRef=db.ref('broadcast');
+    groupChatRef=db.ref('groupchat');
+
+    // ORDERS — all roles get live updates automatically
     ordersRef.on('value', snap=>{
       const val=snap.val()||{};
       orders=Object.values(val).sort((a,b)=>b.id-a.id);
       refreshActiveScreen();
-    }, err=>{
-      console.error('Firebase orders sync error:', err);
-    });
-    // Chat messages: chats/{orderId}/{threadKey}/{pushId} = {sender,text,time,ts}
+    }, err=>console.error('Firebase orders:', err));
+
+    // CHATS — chat messages for order-based threads
     chatsRef.on('value', snap=>{
       const val=snap.val()||{};
       const newChats={};
@@ -412,26 +423,40 @@ try{
         const threads=val[oid]||{};
         newChats[oid]={
           'customer-driver': Object.values(threads['customer-driver']||{}).sort((a,b)=>(a.ts||0)-(b.ts||0)),
-          'customer-admin': Object.values(threads['customer-admin']||{}).sort((a,b)=>(a.ts||0)-(b.ts||0))
+          'customer-admin':  Object.values(threads['customer-admin']||{}).sort((a,b)=>(a.ts||0)-(b.ts||0))
         };
       });
       chats=newChats;
       if(document.getElementById('modal-chat')?.classList.contains('open')) renderChatMessages();
-    }, err=>{
-      console.error('Firebase chats sync error:', err);
-    });
-    // App-wide settings (branding & tarif) set by Admin, applied live for everyone.
+    }, err=>console.error('Firebase chats:', err));
+
+    // SETTINGS — branding & tarif; applied to all clients instantly
     settingsRef.on('value', snap=>{
       const val=snap.val()||{};
       if(val.branding) Object.assign(branding, val.branding);
-      if(val.tarif) Object.assign(tarif, val.tarif);
+      if(val.tarif)    Object.assign(tarif, val.tarif);
       updateBrandingUI();
+      if(document.getElementById('c-ongkir-val')) cUpdateOngkir();
+      if(document.getElementById('s-tarif-preview')) sPreviewTarif();
       refreshActiveScreen();
-    }, err=>{
-      console.error('Firebase settings sync error:', err);
-    });
+    }, err=>console.error('Firebase settings:', err));
+
+    // BROADCAST — admin-only write, all drivers read live
+    broadcastRef.on('value', snap=>{
+      broadcasts = Object.values(snap.val()||{}).sort((a,b)=>(b.ts||0)-(a.ts||0));
+      if(document.getElementById('d-tab-broadcast')?.offsetParent!==null) renderBroadcast();
+      if(document.getElementById('a-tab-broadcast')?.offsetParent!==null) aRenderBroadcast();
+    }, err=>console.error('Firebase broadcast:', err));
+
+    // GROUP CHAT — admin ↔ all drivers (driver names visible only to admin)
+    groupChatRef.on('value', snap=>{
+      groupChats = Object.values(snap.val()||{}).sort((a,b)=>(a.ts||0)-(b.ts||0));
+      if(document.getElementById('d-tab-groupchat')?.offsetParent!==null) renderDriverGroupChat();
+      if(document.getElementById('a-tab-groupchat')?.offsetParent!==null) aRenderGroupChat();
+    }, err=>console.error('Firebase groupchat:', err));
+
   } else {
-    console.warn('Firebase SDK tidak termuat (cek koneksi internet) — berjalan dalam mode lokal saja.');
+    console.warn('Firebase SDK tidak termuat — mode lokal saja.');
   }
 }catch(e){
   console.error('Firebase init error:', e);
@@ -444,6 +469,8 @@ function fbUpdateOrder(id, patch){ if(ordersRef) return ordersRef.child(id).upda
 function fbDeleteOrder(id){ if(ordersRef) ordersRef.child(id).remove(); if(chatsRef) chatsRef.child(id).remove(); }
 function fbPushChat(orderId, threadKey, msg){ if(chatsRef) chatsRef.child(orderId).child(threadKey).push(msg); }
 function fbSetSettings(key, value){ if(settingsRef) settingsRef.child(key).set(value); }
+function fbDeleteBroadcast(id){ if(broadcastRef) broadcastRef.child(id).remove(); }
+function fbPushGroupChat(msg){ if(groupChatRef) groupChatRef.push(msg); }
 
 // Re-render whichever screen is currently visible so live updates (status
 // changes, driver location, etc.) show up immediately on every device.
@@ -544,7 +571,12 @@ function saveAppState(){
   try{
     const screenEl=document.querySelector('.screen.active');
     const screen=screenEl?screenEl.id.replace('screen-',''):'landing';
-    localStorage.setItem(APP_STATE_KEY, JSON.stringify({screen, session, cTab, dTab, aTab}));
+    localStorage.setItem(APP_STATE_KEY, JSON.stringify({
+      screen, session, cTab, dTab, aTab,
+      custProfile, custProfileFilled,
+      cStops, cOrderType: document.getElementById('c-order-type')?.value||'food',
+      cJemput: document.getElementById('c-jemput')?.value||''
+    }));
   }catch(e){ /* localStorage unavailable - ignore */ }
 }
 
@@ -577,7 +609,12 @@ function restoreAppState(){
     return true;
   }
   if(st.screen==='customer'){
+    if(st.custProfile){ custProfile=st.custProfile; custProfileFilled=st.custProfileFilled||false; }
+    if(st.cStops&&st.cStops.length>0) cStops=st.cStops;
     updateBrandingUI(); showScreen('customer'); renderCustomer();
+    if(st.cOrderType) document.getElementById('c-order-type').value=st.cOrderType;
+    if(st.cJemput) document.getElementById('c-jemput').value=st.cJemput;
+    cUpdateOrderType();
     if(st.cTab) cSetTab(st.cTab);
     return true;
   }
@@ -763,6 +800,7 @@ function cSaveProfile(){
   custProfileFilled=!!(name&&phone);
   closeModal('modal-cust-profile');
   renderCustomer();
+  saveAppState();
 }
 
 function openCustProfileModal(){
@@ -907,7 +945,7 @@ function renderDriver(){
 
 function dSetTab(tab){
   dTab=tab;
-  ['available','active','history'].forEach(t=>{
+  ['available','active','broadcast','groupchat','history'].forEach(t=>{
     document.getElementById('d-tab-'+t).style.display=t===tab?'block':'none';
     document.getElementById('dtab-'+t).className='btn btn-sm tab-btn '+(t===tab?'btn-primary':'btn-ghost');
   });
@@ -963,6 +1001,9 @@ function dRenderTab(){
     <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
     <button class="btn btn-danger btn-sm btn-block" style="margin-top:6px" onclick="dDeleteHistory(${o.id})">🗑️ Hapus dari Riwayat</button>
   </div>`).join('');
+
+  renderBroadcast();
+  renderDriverGroupChat();
 }
 
 function dDeleteHistory(oid){
@@ -991,6 +1032,82 @@ function dDoneOrder(oid){
     stopLocationSharing(oid);
     renderDriver();
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// BROADCAST (Admin → all Drivers, read-only for Driver)
+// ═══════════════════════════════════════════════════════════
+function renderBroadcast(){
+  const el=document.getElementById('d-tab-broadcast');
+  if(!el) return;
+  if(broadcasts.length===0){ el.innerHTML='<div class="empty-msg">Belum ada info dari admin</div>'; return; }
+  el.innerHTML=broadcasts.map(b=>`<div class="card" style="border-color:#F0A500">
+    <div class="flex-between" style="margin-bottom:6px">${badge('📢 Info Admin','yellow')}<span class="muted" style="font-size:11px">${b.date} ${b.time}</span></div>
+    <div style="white-space:pre-wrap">${(b.text||'').replace(/</g,'&lt;')}</div>
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════
+// DRIVER GROUP CHAT (Admin ↔ all Drivers)
+// Driver picks "Semua Driver" (group, visible to all drivers + admin) or
+// "Admin" (private 1-on-1 — only that driver and admin see it; other
+// drivers never see it, and Admin sees exactly who sent each message).
+// ═══════════════════════════════════════════════════════════
+function dSwitchChatMode(mode){
+  dChatMode=mode;
+  renderDriverGroupChat();
+}
+
+function renderDriverGroupChat(){
+  const el=document.getElementById('d-tab-groupchat');
+  if(!el) return;
+  const me=drivers.find(d=>d.id===session.id);
+  el.innerHTML=`
+    <div class="tab-row" style="margin-bottom:10px">
+      <button class="btn btn-sm tab-btn ${dChatMode==='all'?'btn-primary':'btn-ghost'}" onclick="dSwitchChatMode('all')">👥 Semua Driver</button>
+      <button class="btn btn-sm tab-btn ${dChatMode==='admin'?'btn-primary':'btn-ghost'}" onclick="dSwitchChatMode('admin')">🛡️ Admin (Pribadi)</button>
+    </div>
+    <div class="card chat-box">
+      <div id="d-groupchat-messages" class="chat-messages"></div>
+      <div class="chat-input-row">
+        <input id="d-groupchat-input" class="input-field" style="margin-bottom:0" placeholder="${dChatMode==='all'?'Tulis pesan ke semua driver…':'Tulis pesan pribadi ke admin…'}" onkeydown="if(event.key==='Enter'){event.preventDefault();dSendGroupChat();}"/>
+        <button class="btn btn-primary" onclick="dSendGroupChat()">Kirim</button>
+      </div>
+    </div>`;
+  const list=document.getElementById('d-groupchat-messages');
+  const visible=groupChats.filter(m=>
+    dChatMode==='all' ? m.scope==='all' : (m.scope==='private'&&m.driverId===session.id)
+  );
+  if(visible.length===0){
+    list.innerHTML=`<div class="empty-msg" style="padding:20px">${dChatMode==='all'?'Belum ada pesan grup':'Belum ada chat pribadi dengan admin'}</div>`;
+  } else {
+    list.innerHTML=visible.map(m=>{
+      const mine=m.sender==='driver'&&m.driverId===session.id;
+      const label=m.sender==='admin'?'🛡️ Admin':(dChatMode==='all'?(m.driverName||'Driver'):(me?me.name:'Saya'));
+      return `<div class="chat-bubble ${mine?'chat-bubble-mine':'chat-bubble-other'}">
+        <div class="chat-sender">${label}</div>
+        <div class="chat-text">${(m.text||'').replace(/</g,'&lt;')}</div>
+        <div class="chat-time">${m.time}</div>
+      </div>`;
+    }).join('');
+  }
+  list.scrollTop=list.scrollHeight;
+}
+
+function dSendGroupChat(){
+  const input=document.getElementById('d-groupchat-input');
+  const text=input.value.trim();
+  if(!text) return;
+  const me=drivers.find(d=>d.id===session.id);
+  const msg={
+    sender:'driver', driverId:session.id, driverName:me?me.name:'Driver',
+    scope: dChatMode==='all'?'all':'private',
+    text, time:nowTime(), date:nowDate(), ts:Date.now()
+  };
+  groupChats.push(msg);
+  fbPushGroupChat(msg);
+  input.value='';
+  renderDriverGroupChat();
 }
 
 function openDriverProfileModal(){
@@ -1027,10 +1144,10 @@ function renderAdmin(){
 
 function aSetTab(tab){
   aTab=tab;
-  ['orders','drivers','customers','settings'].forEach(t=>{
+  ['orders','drivers','customers','broadcast','groupchat','settings'].forEach(t=>{
     document.getElementById('a-tab-'+t).style.display=t===tab?'block':'none';
     document.getElementById('atab-'+t).className='btn btn-sm '+(t===tab?'btn-primary':'btn-ghost');
-    document.getElementById('atab-'+t).style.cssText='font-size:11px;padding:7px 4px';
+    document.getElementById('atab-'+t).style.cssText='font-size:10px;padding:7px 5px;flex:1';
   });
   aRenderTab();
   saveAppState();
@@ -1040,6 +1157,8 @@ function aRenderTab(){
   if(aTab==='orders') aRenderOrders();
   else if(aTab==='drivers') aRenderDrivers();
   else if(aTab==='customers') aRenderCustomers();
+  else if(aTab==='broadcast') aRenderBroadcast();
+  else if(aTab==='groupchat') aRenderGroupChat();
   else if(aTab==='settings') aRenderSettings();
 }
 
@@ -1338,6 +1457,115 @@ function aDeleteCustomer(phone){
   orders=orders.filter(o=>o.customerPhone!==phone);
   closeModal('modal-cust-detail');
   renderAdmin();
+}
+
+// ═══════════════════════════════════════════════════════════
+// BROADCAST (Admin-only write, all Drivers read live)
+// ═══════════════════════════════════════════════════════════
+function aRenderBroadcast(){
+  let html=`<div class="card" style="border-color:#39D353">
+    <div class="section-title" style="margin-bottom:8px">📢 Kirim Info ke Semua Driver</div>
+    <textarea id="a-broadcast-text" class="input-field" rows="3" style="resize:vertical;min-height:70px;font-family:inherit" placeholder="Contoh: Hujan deras di area Sudirman, hati-hati di jalan ya!"></textarea>
+    <button class="btn btn-primary btn-block" onclick="aSendBroadcast()">🚀 Kirim Broadcast</button>
+  </div>
+  <div class="section-title" style="margin-top:14px">📋 Riwayat Broadcast (${broadcasts.length})</div>`;
+  if(broadcasts.length===0){
+    html+='<div class="empty-msg">Belum ada broadcast terkirim</div>';
+  } else {
+    html+=broadcasts.map(b=>`<div class="card">
+      <div class="flex-between" style="margin-bottom:6px"><span class="muted" style="font-size:11px">${b.date} ${b.time}</span>
+        <button onclick="aDeleteBroadcast('${b.id}')" style="background:none;border:none;color:#F85149;cursor:pointer;font-size:16px">🗑️</button></div>
+      <div style="white-space:pre-wrap">${(b.text||'').replace(/</g,'&lt;')}</div>
+    </div>`).join('');
+  }
+  document.getElementById('a-tab-broadcast').innerHTML=html;
+}
+
+function aSendBroadcast(){
+  const text=document.getElementById('a-broadcast-text').value.trim();
+  if(!text) return alert('Tulis info yang ingin dikirim!');
+  const id='b'+Date.now();
+  const msg={id, text, time:nowTime(), date:nowDate(), ts:Date.now()};
+  broadcasts.unshift(msg);
+  fbPushBroadcastWithId(msg);
+  aRenderBroadcast();
+  alert('✅ Broadcast terkirim ke semua driver!');
+}
+
+// push() would generate its own key, but we want a stable id we already
+// display locally — so write directly using a known key instead.
+function fbPushBroadcastWithId(msg){ if(broadcastRef) broadcastRef.child(msg.id).set(msg); }
+
+function aDeleteBroadcast(id){
+  if(!confirm('Hapus broadcast ini?')) return;
+  broadcasts=broadcasts.filter(b=>b.id!==id);
+  fbDeleteBroadcast(id);
+  aRenderBroadcast();
+}
+
+// ═══════════════════════════════════════════════════════════
+// GROUP CHAT (Admin view) — sees both the "Semua Driver" group thread and
+// every driver's private 1-on-1 thread, with sender identity always shown.
+// ═══════════════════════════════════════════════════════════
+let aChatThread='all'; // 'all' or a driverId for private thread
+
+function aRenderGroupChat(){
+  const privateDriverIds=[...new Set(groupChats.filter(m=>m.scope==='private').map(m=>m.driverId))];
+  const tabs=[{k:'all',l:'👥 Grup Semua Driver'}].concat(
+    privateDriverIds.map(id=>{
+      const d=drivers.find(x=>x.id===id);
+      return {k:id,l:'🔒 '+(d?d.name:'Driver')};
+    })
+  );
+  let html=`<div class="tab-row" style="flex-wrap:wrap;margin-bottom:10px">${tabs.map(t=>
+    `<button class="btn btn-sm tab-btn ${aChatThread===t.k?'btn-primary':'btn-ghost'}" onclick="aSwitchChatThread('${t.k}')">${t.l}</button>`
+  ).join('')}</div>
+  <div class="card chat-box">
+    <div id="a-groupchat-messages" class="chat-messages"></div>
+    <div class="chat-input-row">
+      <input id="a-groupchat-input" class="input-field" style="margin-bottom:0" placeholder="${aChatThread==='all'?'Balas ke semua driver…':'Balas pribadi ke driver ini…'}" onkeydown="if(event.key==='Enter'){event.preventDefault();aSendGroupChat();}"/>
+      <button class="btn btn-primary" onclick="aSendGroupChat()">Kirim</button>
+    </div>
+  </div>`;
+  document.getElementById('a-tab-groupchat').innerHTML=html;
+
+  const list=document.getElementById('a-groupchat-messages');
+  const visible=groupChats.filter(m=>
+    aChatThread==='all' ? m.scope==='all' : (m.scope==='private'&&m.driverId===aChatThread)
+  );
+  if(visible.length===0){
+    list.innerHTML='<div class="empty-msg" style="padding:20px">Belum ada pesan</div>';
+  } else {
+    list.innerHTML=visible.map(m=>{
+      const mine=m.sender==='admin';
+      const label=mine?'🛡️ Admin (Saya)':(m.driverName||'Driver');
+      return `<div class="chat-bubble ${mine?'chat-bubble-mine':'chat-bubble-other'}">
+        <div class="chat-sender">${label}</div>
+        <div class="chat-text">${(m.text||'').replace(/</g,'&lt;')}</div>
+        <div class="chat-time">${m.time}</div>
+      </div>`;
+    }).join('');
+  }
+  list.scrollTop=list.scrollHeight;
+}
+
+function aSwitchChatThread(k){ aChatThread=k; aRenderGroupChat(); }
+
+function aSendGroupChat(){
+  const input=document.getElementById('a-groupchat-input');
+  const text=input.value.trim();
+  if(!text) return;
+  const msg={
+    sender:'admin',
+    scope: aChatThread==='all'?'all':'private',
+    driverId: aChatThread==='all'?null:aChatThread,
+    driverName: aChatThread==='all'?null:(drivers.find(d=>d.id===aChatThread)?.name||'Driver'),
+    text, time:nowTime(), date:nowDate(), ts:Date.now()
+  };
+  groupChats.push(msg);
+  fbPushGroupChat(msg);
+  input.value='';
+  aRenderGroupChat();
 }
 
 function aRenderSettings(){
