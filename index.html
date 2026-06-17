@@ -65,7 +65,7 @@
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
   .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
-  .watermark{font-size:10px;color:#8B949E;opacity:.4;font-style:italic;text-align:center;margin-top:18px;pointer-events:none}
+  .watermark{font-size:12px;color:#39D353;opacity:.85;font-weight:700;font-style:italic;text-align:center;margin-top:18px;pointer-events:none;letter-spacing:.3px}
   .landing-btn{background:#1C2128;border:1px solid #30363D;border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;color:#E6EDF3;font-weight:700;font-size:15px;width:100%;margin-bottom:10px;transition:border-color .2s,transform .1s,background .2s;text-align:left}
   .landing-btn:active{transform:scale(.98);background:#21262d}
   .landing-btn:hover{border-color:#39D353}
@@ -182,6 +182,19 @@
     <div class="tab-row">
       <button class="btn btn-primary btn-sm tab-btn" id="ctab-order" onclick="cSetTab('order')">📝 Pesan</button>
       <button class="btn btn-ghost btn-sm tab-btn" id="ctab-history" onclick="cSetTab('history')">📦 Riwayat (<span id="c-hist-count">0</span>)<span id="badge-c-history" class="tab-badge" style="display:none"></span></button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="ctab-chatadmin" onclick="cSetTab('chatadmin')">💬 Chat Admin<span id="badge-c-chatadmin" class="tab-badge" style="display:none"></span></button>
+    </div>
+    <!-- DIRECT CHAT WITH ADMIN (no order needed) -->
+    <div id="c-tab-chatadmin" style="display:none">
+      <div class="card chat-box">
+        <div class="section-title">💬 Tanya Admin</div>
+        <div class="muted" style="font-size:12px;margin-bottom:8px">Punya pertanyaan sebelum order? Chat langsung dengan admin di sini.</div>
+        <div id="c-directchat-messages" class="chat-messages"></div>
+        <div class="chat-input-row">
+          <input id="c-directchat-input" class="input-field" style="margin-bottom:0" placeholder="Tulis pertanyaan…" onkeydown="if(event.key==='Enter'){event.preventDefault();cSendDirectChat();}"/>
+          <button class="btn btn-primary" onclick="cSendDirectChat()">Kirim</button>
+        </div>
+      </div>
     </div>
     <!-- ORDER FORM -->
     <div id="c-tab-order">
@@ -303,7 +316,7 @@
 <!-- Chat Modal -->
 <div id="modal-chat" class="modal-overlay">
   <div class="modal-box">
-    <div class="modal-header"><span style="font-weight:700">💬 Chat</span><button onclick="closeModal('modal-chat')" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
+    <div class="modal-header"><span style="font-weight:700">💬 Chat</span><button onclick="closeChatModal()" style="background:none;border:none;color:#8B949E;font-size:22px;cursor:pointer">×</button></div>
     <div class="modal-body">
       <div id="chat-tabs" class="tab-row" style="margin-bottom:12px"></div>
       <div id="chat-peer-label" class="muted" style="font-size:12px;margin-bottom:6px"></div>
@@ -366,6 +379,7 @@ let dChatMode = 'admin'; // driver's selected chat target: 'all' (group) or 'adm
 // ═══════════════════════════════════════════════════════════
 const NOTIF_SEEN_KEY='gasojek_seen';
 let seen = { dActive:0, dBroadcast:0, dGroupAll:0, dGroupPrivate:0, aOrders:0, aGroupAll:0, aGroupPrivateByDriver:{}, cHistory:0 };
+let seenChatPerThread = {}; // { orderId: { 'customer-driver': ts, 'customer-admin': ts } }
 let lastKnownCounts = { orders:0, broadcasts:0, groupChats:0, chats:0 }; // to detect *new* arrivals for sound
 let notifSoundEnabled = true;
 let audioCtx = null;
@@ -513,11 +527,15 @@ function refreshActiveScreen(){
 function loadSeen(){
   try{
     const raw=localStorage.getItem(NOTIF_SEEN_KEY);
-    if(raw) Object.assign(seen, JSON.parse(raw));
+    if(raw){
+      const parsed=JSON.parse(raw);
+      Object.assign(seen, parsed.seen||parsed);
+      if(parsed.seenChatPerThread) seenChatPerThread=parsed.seenChatPerThread;
+    }
   }catch(e){ /* ignore */ }
 }
 function saveSeen(){
-  try{ localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify(seen)); }catch(e){ /* ignore */ }
+  try{ localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify({seen, seenChatPerThread})); }catch(e){ /* ignore */ }
 }
 
 // Short two-tone notification beep using Web Audio API — no external sound
@@ -542,6 +560,30 @@ function playNotifSound(){
   }catch(e){ /* audio unavailable - ignore */ }
 }
 
+// Counts unread messages in a specific order's chat thread, from the
+// perspective of `viewerRole` ('customer' | 'driver' | 'admin'). A message
+// is "unread" if it wasn't sent by the viewer and arrived after the
+// viewer's last-seen timestamp for that exact order+thread+role. Scoped by
+// role because customer/driver/admin are different viewers of the same
+// thread and must each track their own read position.
+function unreadCountFor(orderId, threadKey, viewerRole){
+  const msgs=(chats[orderId]||{})[threadKey]||[];
+  const lastSeen=(seenChatPerThread[orderId]&&seenChatPerThread[orderId][threadKey+':'+viewerRole])||0;
+  return msgs.filter(m=>m.sender!==viewerRole && (m.ts||0)>lastSeen).length;
+}
+
+function markChatThreadSeen(orderId, threadKey, viewerRole){
+  if(!seenChatPerThread[orderId]) seenChatPerThread[orderId]={};
+  seenChatPerThread[orderId][threadKey+':'+viewerRole]=Date.now();
+  saveSeen();
+}
+
+// Small red dot badge for inline use next to per-order chat buttons.
+function dotBadge(count){
+  if(!count) return '';
+  return `<span class="tab-badge" style="position:static;display:inline-flex;margin-left:6px;vertical-align:middle">${count>99?'99+':count}</span>`;
+}
+
 function setBadge(id, count){
   const el=document.getElementById(id);
   if(!el) return;
@@ -560,10 +602,7 @@ function updateNotifications(){
     const newOrders=orders.filter(o=>o.status==='accepted'&&!o.driver).length;
     const myActiveIds=orders.filter(o=>o.driver&&o.driver.id===me&&o.status==='progress').map(o=>o.id);
     let activeChatUnread=0;
-    myActiveIds.forEach(oid=>{
-      const t=(chats[oid]||{})['customer-driver']||[];
-      t.forEach(m=>{ if(m.sender==='customer'&&(m.ts||0)>seen.dActive) activeChatUnread++; });
-    });
+    myActiveIds.forEach(oid=>{ activeChatUnread+=unreadCountFor(oid,'customer-driver','driver'); });
     const unseenBroadcast=broadcasts.filter(b=>(b.ts||0)>seen.dBroadcast).length;
     const unseenGroupAll=groupChats.filter(m=>m.scope==='all'&&m.sender==='admin'&&(m.ts||0)>seen.dGroupAll).length;
     const unseenGroupPrivate=groupChats.filter(m=>m.scope==='private'&&m.driverId===me&&m.sender==='admin'&&(m.ts||0)>seen.dGroupPrivate).length;
@@ -573,32 +612,44 @@ function updateNotifications(){
     setBadge('badge-d-broadcast', dTab==='broadcast'?0:unseenBroadcast);
     setBadge('badge-d-groupchat', dTab==='groupchat'?0:(unseenGroupAll+unseenGroupPrivate));
 
-    const newArrivals=(broadcasts.length>lastKnownCounts.broadcasts)||(groupChats.length>lastKnownCounts.groupChats)||(orders.length!==lastKnownCounts.orders && newOrders>0);
+    const newArrivals=(broadcasts.length>lastKnownCounts.broadcasts)||(groupChats.length>lastKnownCounts.groupChats)||(orders.length!==lastKnownCounts.orders && newOrders>0)||(activeChatUnread>0);
     if(newArrivals) totalNew++;
 
   } else if(session&&session.role==='admin'){
     const newOrders=orders.filter(o=>o.status==='pending').length;
+    let orderChatUnread=0;
+    orders.forEach(o=>{
+      orderChatUnread+=unreadCountFor(o.id,'customer-admin','admin');
+      if(o.driver) orderChatUnread+=unreadCountFor(o.id,'customer-driver','admin');
+    });
+    let directChatUnread=0;
+    Object.keys(chats).filter(k=>k.startsWith('direct:')).forEach(key=>{
+      directChatUnread+=unreadCountFor(key,'customer-admin','admin');
+    });
     const unseenGroupAll=groupChats.filter(m=>m.scope==='all'&&m.sender==='driver'&&(m.ts||0)>seen.aGroupAll).length;
     const unseenGroupPrivate=groupChats.filter(m=>m.scope==='private'&&m.sender==='driver'&&(m.ts||0)>(seen.aGroupPrivateByDriver[m.driverId]||0)).length;
 
-    setBadge('badge-a-orders', aTab==='orders'?0:newOrders);
+    setBadge('badge-a-orders', aTab==='orders'?0:(newOrders+orderChatUnread+directChatUnread));
     setBadge('badge-a-groupchat', aTab==='groupchat'?0:(unseenGroupAll+unseenGroupPrivate));
 
-    if(groupChats.length>lastKnownCounts.groupChats || orders.length>lastKnownCounts.orders) totalNew++;
+    if(groupChats.length>lastKnownCounts.groupChats || orders.length>lastKnownCounts.orders || orderChatUnread>0 || directChatUnread>0) totalNew++;
 
   } else if(document.getElementById('screen-customer')?.classList.contains('active')){
-    // Customer: notify on chat replies (admin/driver) for any of their orders
+    // Customer: notify on chat replies (admin/driver) for any of their orders,
+    // plus the direct pre-order chat with admin.
     let unseenChat=0;
-    Object.keys(chats).forEach(oid=>{
-      const t=chats[oid];
-      if(!t) return;
-      ['customer-driver','customer-admin'].forEach(key=>{
-        (t[key]||[]).forEach(m=>{ if(m.sender!=='customer'&&(m.ts||0)>seen.cHistory) unseenChat++; });
-      });
+    orders.filter(o=>o.customerPhone===custProfile.phone&&custProfile.phone).forEach(o=>{
+      unseenChat+=unreadCountFor(o.id,'customer-admin','customer');
+      if(o.driver) unseenChat+=unreadCountFor(o.id,'customer-driver','customer');
     });
+    const directUnread=custProfile.phone?unreadCountFor('direct:'+custProfile.phone,'customer-admin','customer'):0;
+
     setBadge('badge-c-history', cTab==='history'?0:unseenChat);
-    if(unseenChat>0 && unseenChat!==lastKnownCounts.chats) totalNew++;
-    lastKnownCounts.chats=unseenChat;
+    setBadge('badge-c-chatadmin', cTab==='chatadmin'?0:directUnread);
+
+    const totalUnseen=unseenChat+directUnread;
+    if(totalUnseen>0 && totalUnseen!==lastKnownCounts.chats) totalNew++;
+    lastKnownCounts.chats=totalUnseen;
   }
 
   if(totalNew>0) playNotifSound();
@@ -749,7 +800,12 @@ function restoreAppState(){
   return false;
 }
 
-function goCustomer(){ updateBrandingUI(); showScreen('customer'); renderCustomer(); }
+function goCustomer(){
+  updateBrandingUI();
+  showScreen('customer');
+  renderCustomer();
+  cSetTab(cTab||'order'); // re-sync visible tab DOM with persisted cTab state
+}
 
 function goLogin(role){
   document.getElementById('login-role').value=role;
@@ -777,10 +833,14 @@ function doLogin(){
     if(user==='admin'&&pass==='admin123'){
       session={role:'admin',id:'admin',name:'Admin'};
       updateBrandingUI(); showScreen('admin'); renderAdmin();
+      aSetTab(aTab||'orders'); // re-sync visible tab DOM with persisted aTab state
     } else { errEl.textContent='Username atau password salah.'; errEl.style.display='block'; }
   } else {
     const d=drivers.find(dr=>dr.username===user&&dr.password===pass&&dr.active);
-    if(d){ session={role:'driver',id:d.id,name:d.name}; updateBrandingUI(); showScreen('driver'); renderDriver(); }
+    if(d){
+      session={role:'driver',id:d.id,name:d.name}; updateBrandingUI(); showScreen('driver'); renderDriver();
+      dSetTab(dTab||'available'); // re-sync visible tab DOM with persisted dTab state
+    }
     else { errEl.textContent='Kredensial tidak valid atau akun tidak aktif.'; errEl.style.display='block'; }
   }
 }
@@ -853,12 +913,21 @@ function renderCustomer(){
 }
 
 function cSetTab(tab){
+  if(tab==='chatadmin'&&!custProfileFilled){
+    alert('Lengkapi profil (nama & no. HP) dulu ya, supaya admin tahu harus membalas siapa.');
+    openCustProfileModal();
+    return;
+  }
   cTab=tab;
   document.getElementById('c-tab-order').style.display=tab==='order'?'block':'none';
   document.getElementById('c-tab-history').style.display=tab==='history'?'block':'none';
+  document.getElementById('c-tab-chatadmin').style.display=tab==='chatadmin'?'block':'none';
   document.getElementById('ctab-order').className='btn btn-sm tab-btn '+(tab==='order'?'btn-primary':'btn-ghost');
   document.getElementById('ctab-history').className='btn btn-sm tab-btn '+(tab==='history'?'btn-primary':'btn-ghost');
+  document.getElementById('ctab-chatadmin').className='btn btn-sm tab-btn '+(tab==='chatadmin'?'btn-primary':'btn-ghost');
   if(tab==='history'){ renderCHistory(); markSeen('cHistory'); }
+  else if(tab==='chatadmin'){ renderDirectChat(); markChatThreadSeen('direct:'+custProfile.phone,'customer-admin','customer'); }
+  updateNotifications();
   saveAppState();
 }
 
@@ -938,6 +1007,44 @@ function openCustProfileModal(){
   document.getElementById('cp-address').value=custProfile.address;
   openModal('modal-cust-profile');
 }
+
+// ═══════════════════════════════════════════════════════════
+// DIRECT CHAT: Customer ↔ Admin, independent of any order. Reuses the
+// existing per-order `chats` structure with a synthetic key "direct:{phone}"
+// so the same Firebase path/listener logic applies without duplication.
+// ═══════════════════════════════════════════════════════════
+function directChatKey(){ return 'direct:'+custProfile.phone; }
+
+function renderDirectChat(){
+  const list=document.getElementById('c-directchat-messages');
+  if(!list) return;
+  const key=directChatKey();
+  const msgs=(chats[key]||{})['customer-admin']||[];
+  if(msgs.length===0){
+    list.innerHTML='<div class="empty-msg" style="padding:20px">Belum ada chat. Tulis pertanyaan kamu ke admin!</div>';
+  } else {
+    list.innerHTML=msgs.map(m=>{
+      const mine=m.sender==='customer';
+      return `<div class="chat-bubble ${mine?'chat-bubble-mine':'chat-bubble-other'}">
+        <div class="chat-sender">${mine?'Saya':'🛡️ Admin'}</div>
+        <div class="chat-text">${(m.text||'').replace(/</g,'&lt;')}</div>
+        <div class="chat-time">${m.time}</div>
+      </div>`;
+    }).join('');
+  }
+  list.scrollTop=list.scrollHeight;
+}
+
+function cSendDirectChat(){
+  const input=document.getElementById('c-directchat-input');
+  const text=input.value.trim();
+  if(!text) return;
+  appendChat(directChatKey(),'customer-admin',{sender:'customer',text,time:nowTime(),ts:Date.now(),
+    customerName:custProfile.name, customerPhone:custProfile.phone});
+  input.value='';
+  renderDirectChat();
+}
+
 
 function cResetOrderForm(){
   cEditingOrderId=null;
@@ -1031,8 +1138,9 @@ function renderCHistory(){
   if(my.length===0){ el.innerHTML='<div class="empty-msg">Belum ada orderan</div>'; return; }
   el.innerHTML=my.map(o=>{
     const hasDriver=!!o.driver;
+    const chatUnread=unreadCountFor(o.id,'customer-admin','customer')+(hasDriver?unreadCountFor(o.id,'customer-driver','customer'):0);
     const chatBtn=`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:6px" onclick="openChatModal(${o.id},'customer','${hasDriver?'customer-driver':'customer-admin'}')">
-        💬 Chat ${hasDriver?'Driver / Admin':'Admin'}</button>`;
+        💬 Chat ${hasDriver?'Driver / Admin':'Admin'}${dotBadge(chatUnread)}</button>`;
     const driverInfo=hasDriver?`<div style="background:#161B22;border-radius:8px;padding:8px;font-size:13px;margin:6px 0">
       🧑‍✈️ ${o.driver.name} • ${o.driver.phone} • ${o.driver.vehicle}</div>`:'';
     const trackBtn=(o.status==='progress'&&hasDriver)?
@@ -1083,6 +1191,7 @@ function dSetTab(tab){
   if(tab==='active') markSeen('dActive');
   else if(tab==='broadcast') markSeen('dBroadcast');
   else if(tab==='groupchat'){ markSeen('dGroupAll'); markSeen('dGroupPrivate'); }
+  updateNotifications();
   saveAppState();
 }
 
@@ -1113,13 +1222,14 @@ function dRenderTab(){
   if(myActive.length===0){ acEl.innerHTML='<div class="empty-msg">Tidak ada orderan aktif</div>'; }
   else acEl.innerHTML=myActive.map(o=>{
     const stopsHtml=stopsSummaryHTML(o);
+    const dChatUnread=unreadCountFor(o.id,'customer-driver','driver');
     return `<div class="card">
       <div style="font-weight:600">👤 ${o.customerName} • ${o.customerPhone}</div>
       <div class="info-row">📍 ${o.alamatCustomer}</div>
       ${stopsHtml}
       <div style="color:#39D353;font-weight:800;font-size:16px;margin:6px 0">${fmtRp(o.ongkir)}</div>
       <div class="grid-2" style="gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'driver','customer-driver')">💬 Chat Customer</button>
+        <button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'driver','customer-driver')">💬 Chat Customer${dotBadge(dChatUnread)}</button>
         <button class="btn btn-primary btn-sm" onclick="dDoneOrder(${o.id})">✅ Selesai</button>
       </div>
     </div>`;
@@ -1287,6 +1397,7 @@ function aSetTab(tab){
   aRenderTab();
   if(tab==='orders') markSeen('aOrders');
   else if(tab==='groupchat') markSeen('aGroupAll');
+  updateNotifications();
   saveAppState();
 }
 
@@ -1304,7 +1415,26 @@ function aRenderOrders(){
   const active=orders.filter(o=>['accepted','progress'].includes(o.status));
   const done=orders.filter(o=>['done','rejected'].includes(o.status));
   let html='';
-  html+=`<div class="section-title">⏳ Orderan Masuk (${pending.length})</div>`;
+
+  // Direct chats: customers asking questions before placing any order.
+  const directThreads=Object.keys(chats).filter(k=>k.startsWith('direct:')&&(chats[k]['customer-admin']||[]).length>0);
+  if(directThreads.length>0){
+    html+=`<div class="section-title">💬 Chat Sebelum Order (${directThreads.length})</div>`;
+    html+=directThreads.map(key=>{
+      const msgs=chats[key]['customer-admin']||[];
+      const last=msgs[msgs.length-1];
+      const phone=key.slice('direct:'.length);
+      const name=last?.customerName || phone;
+      const unread=unreadCountFor(key,'customer-admin','admin');
+      return `<div class="card" style="border-color:#58A6FF">
+        <div class="flex-between" style="margin-bottom:4px"><span style="font-weight:600">👤 ${name} • ${phone}</span><span class="muted" style="font-size:11px">${last?.time||''}</span></div>
+        <div class="muted" style="font-size:13px;margin-bottom:6px">${(last?.text||'').replace(/</g,'&lt;')}</div>
+        <button class="btn btn-ghost btn-sm btn-block" onclick="openChatModal('${key}','admin','customer-admin')">💬 Balas${dotBadge(unread)}</button>
+      </div>`;
+    }).join('');
+  }
+
+  html+=`<div class="section-title" style="margin-top:12px">⏳ Orderan Masuk (${pending.length})</div>`;
   if(pending.length===0) html+='<div class="card"><div class="muted" style="text-align:center">Tidak ada orderan pending</div></div>';
   html+=pending.map(o=>{
     const stopsHtml=stopsSummaryHTML(o);
@@ -1319,24 +1449,28 @@ function aRenderOrders(){
         <button class="btn btn-primary btn-sm" onclick="aAccept(${o.id})">✅ Terima & Broadcast</button>
         <button class="btn btn-danger btn-sm" onclick="aReject(${o.id})">❌ Tolak</button>
       </div>
-      <button class="btn btn-ghost btn-sm btn-block" onclick="openChatModal(${o.id},'admin','customer-admin')">💬 Chat Customer</button>
+      <button class="btn btn-ghost btn-sm btn-block" onclick="openChatModal(${o.id},'admin','customer-admin')">💬 Chat Customer${dotBadge(unreadCountFor(o.id,'customer-admin','admin'))}</button>
     </div>`;
   }).join('');
 
   html+=`<div class="section-title" style="margin-top:12px">🛵 Sedang Berjalan (${active.length})</div>`;
   if(active.length===0) html+='<div class="card"><div class="muted" style="text-align:center">Tidak ada orderan aktif</div></div>';
-  html+=active.map(o=>`<div class="card">
+  html+=active.map(o=>{
+    const adminChatUnread=unreadCountFor(o.id,'customer-admin','admin');
+    const monitorUnread=o.driver?(unreadCountFor(o.id,'customer-driver','admin')):0;
+    return `<div class="card">
     <div class="flex-between" style="margin-bottom:4px">${badge(o.status==='accepted'?'✅ Menunggu Driver':'🛵 On Progress',o.status==='accepted'?'yellow':'blue')}<span class="muted" style="font-size:11px">${o.createdAt}</span></div>
     ${statusTracker(o.status)}
     <div class="info-row">👤 ${o.customerName}</div>
     ${o.driver?`<div class="info-row">🧑‍✈️ ${o.driver.name} — ${o.driver.vehicle}</div>`:''}
     <div style="color:#39D353;font-weight:700">${fmtRp(o.ongkir)}</div>
     <div class="grid-2" style="gap:8px;margin-top:8px">
-      <button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'admin','customer-admin')">💬 Chat Customer</button>
-      ${o.driver?`<button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'admin','customer-driver')">👁 Monitor Chat</button>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'admin','customer-admin')">💬 Chat Customer${dotBadge(adminChatUnread)}</button>
+      ${o.driver?`<button class="btn btn-ghost btn-sm" onclick="openChatModal(${o.id},'admin','customer-driver')">👁 Monitor Chat${dotBadge(monitorUnread)}</button>`:''}
     </div>
     ${(o.status==='progress'&&o.driver)?`<button class="btn btn-ghost btn-sm btn-block" style="margin-top:8px;border-color:#58A6FF;color:#58A6FF" onclick="openTrackModal(${o.id})">🗺️ Lacak Driver Live</button>`:''}
-  </div>`).join('');
+  </div>`;
+  }).join('');
 
   html+=`<div class="section-title" style="margin-top:12px">📋 Riwayat (${done.length})</div>`;
   html+=done.map(o=>`<div class="card" style="opacity:.7">
@@ -1869,11 +2003,23 @@ function openChatModal(orderId, role, defaultThread){
   chatThread=defaultThread||'customer-admin';
   renderChatModal();
   openModal('modal-chat');
+  markChatThreadSeen(orderId, chatThread, role);
   if(role==='customer') markSeen('cHistory');
   else if(role==='driver') markSeen('dActive');
+  updateNotifications();
 }
 
-function switchChatThread(thread){ chatThread=thread; renderChatModal(); }
+function closeChatModal(){
+  closeModal('modal-chat');
+  refreshActiveScreen();
+}
+
+function switchChatThread(thread){
+  chatThread=thread;
+  renderChatModal();
+  markChatThreadSeen(chatOrderId, thread, chatRole);
+  updateNotifications();
+}
 
 function renderChatMessages(){
   const thread=getThread(chatOrderId,chatThread);
@@ -1910,14 +2056,29 @@ const peerMapFn = (o, thread, role) => {
 
 // Patch renderChatModal to use function
 function renderChatModal(){
-  const o=orders.find(x=>x.id===chatOrderId);
+  const isDirect=typeof chatOrderId==='string'&&chatOrderId.startsWith('direct:');
+  const o=isDirect?null:orders.find(x=>x.id===chatOrderId);
   const tabs=[];
   if(o&&o.driver) tabs.push({k:'customer-driver',l:'Customer \u2194 Driver'});
   tabs.push({k:'customer-admin',l:'Customer \u2194 Admin'});
   document.getElementById('chat-tabs').innerHTML=tabs.map(t=>
     `<button class="btn btn-sm ${chatThread===t.k?'btn-primary':'btn-ghost'}" onclick="switchChatThread('${t.k}')">${t.l}</button>`
   ).join('');
-  document.getElementById('chat-peer-label').textContent='Chat dengan: '+peerMapFn(o,chatThread,chatRole);
+  if(isDirect){
+    const phone=chatOrderId.slice('direct:'.length);
+    let peerLabel='Customer';
+    if(chatRole==='admin'){
+      const msgs=(chats[chatOrderId]||{})['customer-admin']||[];
+      const fromOrder=orders.find(x=>x.customerPhone===phone)?.customerName;
+      const fromMsg=msgs.find(m=>m.customerName)?.customerName;
+      peerLabel=fromOrder||fromMsg||phone||'Customer';
+    } else {
+      peerLabel='Admin';
+    }
+    document.getElementById('chat-peer-label').textContent='Chat dengan: '+peerLabel+(chatRole==='admin'?' (sebelum order)':'');
+  } else {
+    document.getElementById('chat-peer-label').textContent='Chat dengan: '+peerMapFn(o,chatThread,chatRole);
+  }
   renderChatMessages();
 }
 
