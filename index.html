@@ -59,6 +59,9 @@
   .stop-box{background:#161B22;border:1px solid #30363D;border-radius:12px;padding:12px;margin-bottom:10px}
   .ongkir-box{background:linear-gradient(135deg,#1A4D2A,#163b22);border:1px solid #39D353;border-radius:12px;padding:12px 14px;margin-bottom:12px}
   .warning-box{background:#3D2E00;border:1px solid #F0A500;border-radius:12px;padding:10px 14px;margin-bottom:12px;color:#F0A500;font-size:13px}
+  .tab-btn{position:relative}
+  .tab-badge{position:absolute;top:-6px;right:-6px;background:#F85149;color:#fff;font-size:10px;font-weight:800;line-height:1;min-width:16px;height:16px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;box-shadow:0 0 0 2px #0D1117;animation:badgePop .25s ease}
+  @keyframes badgePop{from{transform:scale(0)}to{transform:scale(1)}}
   .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
   .grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
@@ -178,7 +181,7 @@
     </div>
     <div class="tab-row">
       <button class="btn btn-primary btn-sm tab-btn" id="ctab-order" onclick="cSetTab('order')">📝 Pesan</button>
-      <button class="btn btn-ghost btn-sm tab-btn" id="ctab-history" onclick="cSetTab('history')">📦 Riwayat (<span id="c-hist-count">0</span>)</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="ctab-history" onclick="cSetTab('history')">📦 Riwayat (<span id="c-hist-count">0</span>)<span id="badge-c-history" class="tab-badge" style="display:none"></span></button>
     </div>
     <!-- ORDER FORM -->
     <div id="c-tab-order">
@@ -226,10 +229,10 @@
   <div class="page-content">
     <div class="grid-3" style="margin-bottom:14px" id="d-stats"></div>
     <div class="tab-row" style="flex-wrap:wrap;gap:6px">
-      <button class="btn btn-primary btn-sm tab-btn" id="dtab-available" onclick="dSetTab('available')">📬 Orderan</button>
-      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-active" onclick="dSetTab('active')">🛵 Aktif</button>
-      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-broadcast" onclick="dSetTab('broadcast')">📢 Info</button>
-      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-groupchat" onclick="dSetTab('groupchat')">💬 Chat</button>
+      <button class="btn btn-primary btn-sm tab-btn" id="dtab-available" onclick="dSetTab('available')">📬 Orderan<span id="badge-d-available" class="tab-badge" style="display:none"></span></button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-active" onclick="dSetTab('active')">🛵 Aktif<span id="badge-d-active" class="tab-badge" style="display:none"></span></button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-broadcast" onclick="dSetTab('broadcast')">📢 Info<span id="badge-d-broadcast" class="tab-badge" style="display:none"></span></button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="dtab-groupchat" onclick="dSetTab('groupchat')">💬 Chat<span id="badge-d-groupchat" class="tab-badge" style="display:none"></span></button>
       <button class="btn btn-ghost btn-sm tab-btn" id="dtab-history" onclick="dSetTab('history')">📋 Riwayat</button>
     </div>
     <div id="d-tab-available"><div class="empty-msg">Tidak ada orderan tersedia</div></div>
@@ -252,12 +255,12 @@
   <div class="page-content">
     <div class="stat-grid" id="a-stats"></div>
     <div style="display:flex;gap:5px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" id="atab-orders" onclick="aSetTab('orders')" style="font-size:10px;padding:7px 5px;flex:1">📦 Order</button>
-      <button class="btn btn-ghost btn-sm" id="atab-drivers" onclick="aSetTab('drivers')" style="font-size:10px;padding:7px 5px;flex:1">🧑‍✈️ Driver</button>
-      <button class="btn btn-ghost btn-sm" id="atab-customers" onclick="aSetTab('customers')" style="font-size:10px;padding:7px 5px;flex:1">👤 Customer</button>
-      <button class="btn btn-ghost btn-sm" id="atab-broadcast" onclick="aSetTab('broadcast')" style="font-size:10px;padding:7px 5px;flex:1">📢 Broadcast</button>
-      <button class="btn btn-ghost btn-sm" id="atab-groupchat" onclick="aSetTab('groupchat')" style="font-size:10px;padding:7px 5px;flex:1">💬 Chat</button>
-      <button class="btn btn-ghost btn-sm" id="atab-settings" onclick="aSetTab('settings')" style="font-size:10px;padding:7px 5px;flex:1">⚙️ Setting</button>
+      <button class="btn btn-primary btn-sm tab-btn" id="atab-orders" onclick="aSetTab('orders')" style="font-size:10px;padding:7px 5px;flex:1">📦 Order<span id="badge-a-orders" class="tab-badge" style="display:none"></span></button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="atab-drivers" onclick="aSetTab('drivers')" style="font-size:10px;padding:7px 5px;flex:1">🧑‍✈️ Driver</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="atab-customers" onclick="aSetTab('customers')" style="font-size:10px;padding:7px 5px;flex:1">👤 Customer</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="atab-broadcast" onclick="aSetTab('broadcast')" style="font-size:10px;padding:7px 5px;flex:1">📢 Broadcast</button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="atab-groupchat" onclick="aSetTab('groupchat')" style="font-size:10px;padding:7px 5px;flex:1">💬 Chat<span id="badge-a-groupchat" class="tab-badge" style="display:none"></span></button>
+      <button class="btn btn-ghost btn-sm tab-btn" id="atab-settings" onclick="aSetTab('settings')" style="font-size:10px;padding:7px 5px;flex:1">⚙️ Setting</button>
     </div>
     <div id="a-tab-orders"></div>
     <div id="a-tab-drivers" style="display:none"></div>
@@ -355,6 +358,17 @@ let chats = {}; // { orderId: { 'customer-driver':[], 'customer-admin':[] } }
 let broadcasts = []; // [{ id, text, ts, time, date }] — admin-only writes, all drivers read
 let groupChats = []; // [{ sender:'admin'|'driver', driverId, driverName, text, ts, time }]
 let dChatMode = 'admin'; // driver's selected chat target: 'all' (group) or 'admin' (private)
+
+// ═══════════════════════════════════════════════════════════
+// NOTIFICATIONS — badge counts + sound for new orders/chats/broadcasts.
+// "Seen" timestamps are tracked per role and persisted to localStorage so
+// badges don't reappear for things already viewed before a refresh.
+// ═══════════════════════════════════════════════════════════
+const NOTIF_SEEN_KEY='gasojek_seen';
+let seen = { dActive:0, dBroadcast:0, dGroupAll:0, dGroupPrivate:0, aOrders:0, aGroupAll:0, aGroupPrivateByDriver:{}, cHistory:0 };
+let lastKnownCounts = { orders:0, broadcasts:0, groupChats:0, chats:0 }; // to detect *new* arrivals for sound
+let notifSoundEnabled = true;
+let audioCtx = null;
 let session = null; // { role, id, name }
 
 // Customer local state
@@ -428,6 +442,7 @@ try{
       });
       chats=newChats;
       if(document.getElementById('modal-chat')?.classList.contains('open')) renderChatMessages();
+      updateNotifications();
     }, err=>console.error('Firebase chats:', err));
 
     // SETTINGS — branding & tarif; applied to all clients instantly
@@ -446,6 +461,7 @@ try{
       broadcasts = Object.values(snap.val()||{}).sort((a,b)=>(b.ts||0)-(a.ts||0));
       if(document.getElementById('d-tab-broadcast')?.offsetParent!==null) renderBroadcast();
       if(document.getElementById('a-tab-broadcast')?.offsetParent!==null) aRenderBroadcast();
+      updateNotifications();
     }, err=>console.error('Firebase broadcast:', err));
 
     // GROUP CHAT — admin ↔ all drivers (driver names visible only to admin)
@@ -453,6 +469,7 @@ try{
       groupChats = Object.values(snap.val()||{}).sort((a,b)=>(a.ts||0)-(b.ts||0));
       if(document.getElementById('d-tab-groupchat')?.offsetParent!==null) renderDriverGroupChat();
       if(document.getElementById('a-tab-groupchat')?.offsetParent!==null) aRenderGroupChat();
+      updateNotifications();
     }, err=>console.error('Firebase groupchat:', err));
 
   } else {
@@ -487,6 +504,117 @@ function refreshActiveScreen(){
   }
   if(document.getElementById('modal-chat')?.classList.contains('open')) renderChatMessages();
   if(trackingOrderId!=null) updateTrackMarker();
+  updateNotifications();
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOTIFICATIONS — badge counts + sound
+// ═══════════════════════════════════════════════════════════
+function loadSeen(){
+  try{
+    const raw=localStorage.getItem(NOTIF_SEEN_KEY);
+    if(raw) Object.assign(seen, JSON.parse(raw));
+  }catch(e){ /* ignore */ }
+}
+function saveSeen(){
+  try{ localStorage.setItem(NOTIF_SEEN_KEY, JSON.stringify(seen)); }catch(e){ /* ignore */ }
+}
+
+// Short two-tone notification beep using Web Audio API — no external sound
+// file needed, works the moment the user has interacted with the page once
+// (required by browser autoplay policies).
+function playNotifSound(){
+  if(!notifSoundEnabled) return;
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+    const now=audioCtx.currentTime;
+    [[880,now,0.09],[1320,now+0.1,0.12]].forEach(([freq,t,dur])=>{
+      const osc=audioCtx.createOscillator();
+      const gain=audioCtx.createGain();
+      osc.type='sine'; osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.001,t);
+      gain.gain.exponentialRampToValueAtTime(0.18,t+0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.start(t); osc.stop(t+dur+0.02);
+    });
+  }catch(e){ /* audio unavailable - ignore */ }
+}
+
+function setBadge(id, count){
+  const el=document.getElementById(id);
+  if(!el) return;
+  if(count>0){ el.textContent=count>99?'99+':count; el.style.display='flex'; }
+  else el.style.display='none';
+}
+
+// Computes unread counts for the current session's role and updates all
+// visible badges; also plays a sound exactly once per *newly arrived* item
+// (tracked via lastKnownCounts) so it doesn't replay on every re-render.
+function updateNotifications(){
+  let totalNew=0;
+
+  if(session&&session.role==='driver'){
+    const me=session.id;
+    const newOrders=orders.filter(o=>o.status==='accepted'&&!o.driver).length;
+    const myActiveIds=orders.filter(o=>o.driver&&o.driver.id===me&&o.status==='progress').map(o=>o.id);
+    let activeChatUnread=0;
+    myActiveIds.forEach(oid=>{
+      const t=(chats[oid]||{})['customer-driver']||[];
+      t.forEach(m=>{ if(m.sender==='customer'&&(m.ts||0)>seen.dActive) activeChatUnread++; });
+    });
+    const unseenBroadcast=broadcasts.filter(b=>(b.ts||0)>seen.dBroadcast).length;
+    const unseenGroupAll=groupChats.filter(m=>m.scope==='all'&&m.sender==='admin'&&(m.ts||0)>seen.dGroupAll).length;
+    const unseenGroupPrivate=groupChats.filter(m=>m.scope==='private'&&m.driverId===me&&m.sender==='admin'&&(m.ts||0)>seen.dGroupPrivate).length;
+
+    setBadge('badge-d-available', dTab==='available'?0:newOrders);
+    setBadge('badge-d-active', dTab==='active'?0:activeChatUnread);
+    setBadge('badge-d-broadcast', dTab==='broadcast'?0:unseenBroadcast);
+    setBadge('badge-d-groupchat', dTab==='groupchat'?0:(unseenGroupAll+unseenGroupPrivate));
+
+    const newArrivals=(broadcasts.length>lastKnownCounts.broadcasts)||(groupChats.length>lastKnownCounts.groupChats)||(orders.length!==lastKnownCounts.orders && newOrders>0);
+    if(newArrivals) totalNew++;
+
+  } else if(session&&session.role==='admin'){
+    const newOrders=orders.filter(o=>o.status==='pending').length;
+    const unseenGroupAll=groupChats.filter(m=>m.scope==='all'&&m.sender==='driver'&&(m.ts||0)>seen.aGroupAll).length;
+    const unseenGroupPrivate=groupChats.filter(m=>m.scope==='private'&&m.sender==='driver'&&(m.ts||0)>(seen.aGroupPrivateByDriver[m.driverId]||0)).length;
+
+    setBadge('badge-a-orders', aTab==='orders'?0:newOrders);
+    setBadge('badge-a-groupchat', aTab==='groupchat'?0:(unseenGroupAll+unseenGroupPrivate));
+
+    if(groupChats.length>lastKnownCounts.groupChats || orders.length>lastKnownCounts.orders) totalNew++;
+
+  } else if(document.getElementById('screen-customer')?.classList.contains('active')){
+    // Customer: notify on chat replies (admin/driver) for any of their orders
+    let unseenChat=0;
+    Object.keys(chats).forEach(oid=>{
+      const t=chats[oid];
+      if(!t) return;
+      ['customer-driver','customer-admin'].forEach(key=>{
+        (t[key]||[]).forEach(m=>{ if(m.sender!=='customer'&&(m.ts||0)>seen.cHistory) unseenChat++; });
+      });
+    });
+    setBadge('badge-c-history', cTab==='history'?0:unseenChat);
+    if(unseenChat>0 && unseenChat!==lastKnownCounts.chats) totalNew++;
+    lastKnownCounts.chats=unseenChat;
+  }
+
+  if(totalNew>0) playNotifSound();
+  lastKnownCounts.orders=orders.length;
+  lastKnownCounts.broadcasts=broadcasts.length;
+  lastKnownCounts.groupChats=groupChats.length;
+}
+
+// Mark a category as "seen up to now" — called when the user opens the
+// relevant tab/modal, clearing its badge until something new arrives.
+function markSeen(key, driverId){
+  const now=Date.now();
+  if(key==='aGroupPrivate'&&driverId){ seen.aGroupPrivateByDriver[driverId]=now; }
+  else seen[key]=now;
+  saveSeen();
+  updateNotifications();
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -721,6 +849,7 @@ function renderCustomer(){
   renderCStops();
   updateHistCount();
   if(cTab==='history') renderCHistory();
+  updateNotifications();
 }
 
 function cSetTab(tab){
@@ -729,7 +858,7 @@ function cSetTab(tab){
   document.getElementById('c-tab-history').style.display=tab==='history'?'block':'none';
   document.getElementById('ctab-order').className='btn btn-sm tab-btn '+(tab==='order'?'btn-primary':'btn-ghost');
   document.getElementById('ctab-history').className='btn btn-sm tab-btn '+(tab==='history'?'btn-primary':'btn-ghost');
-  if(tab==='history') renderCHistory();
+  if(tab==='history'){ renderCHistory(); markSeen('cHistory'); }
   saveAppState();
 }
 
@@ -941,6 +1070,7 @@ function renderDriver(){
     ['📦',all.length,'Total'],['🛵',active.length,'Aktif'],['🎉',done.length,'Selesai']
   ].map(([ic,v,l])=>`<div class="card" style="text-align:center;padding:10px;margin:0"><div style="font-size:18px">${ic}</div><div class="stat-val">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
   dRenderTab();
+  updateNotifications();
 }
 
 function dSetTab(tab){
@@ -950,6 +1080,9 @@ function dSetTab(tab){
     document.getElementById('dtab-'+t).className='btn btn-sm tab-btn '+(t===tab?'btn-primary':'btn-ghost');
   });
   dRenderTab();
+  if(tab==='active') markSeen('dActive');
+  else if(tab==='broadcast') markSeen('dBroadcast');
+  else if(tab==='groupchat'){ markSeen('dGroupAll'); markSeen('dGroupPrivate'); }
   saveAppState();
 }
 
@@ -1056,6 +1189,7 @@ function renderBroadcast(){
 function dSwitchChatMode(mode){
   dChatMode=mode;
   renderDriverGroupChat();
+  if(mode==='all') markSeen('dGroupAll'); else markSeen('dGroupPrivate');
 }
 
 function renderDriverGroupChat(){
@@ -1140,16 +1274,19 @@ function renderAdmin(){
     ['🛵',active.length,'Aktif'],['💰','Rp'+(revenue/1000).toFixed(0)+'K','Pendapatan']
   ].map(([ic,v,l])=>`<div class="stat-box"><div style="font-size:20px">${ic}</div><div class="stat-val">${v}</div><div class="stat-lbl">${l}</div></div>`).join('');
   aRenderTab();
+  updateNotifications();
 }
 
 function aSetTab(tab){
   aTab=tab;
   ['orders','drivers','customers','broadcast','groupchat','settings'].forEach(t=>{
     document.getElementById('a-tab-'+t).style.display=t===tab?'block':'none';
-    document.getElementById('atab-'+t).className='btn btn-sm '+(t===tab?'btn-primary':'btn-ghost');
+    document.getElementById('atab-'+t).className='btn btn-sm tab-btn '+(t===tab?'btn-primary':'btn-ghost');
     document.getElementById('atab-'+t).style.cssText='font-size:10px;padding:7px 5px;flex:1';
   });
   aRenderTab();
+  if(tab==='orders') markSeen('aOrders');
+  else if(tab==='groupchat') markSeen('aGroupAll');
   saveAppState();
 }
 
@@ -1549,7 +1686,11 @@ function aRenderGroupChat(){
   list.scrollTop=list.scrollHeight;
 }
 
-function aSwitchChatThread(k){ aChatThread=k; aRenderGroupChat(); }
+function aSwitchChatThread(k){
+  aChatThread=k;
+  aRenderGroupChat();
+  if(k==='all') markSeen('aGroupAll'); else markSeen('aGroupPrivate', k);
+}
 
 function aSendGroupChat(){
   const input=document.getElementById('a-groupchat-input');
@@ -1728,6 +1869,8 @@ function openChatModal(orderId, role, defaultThread){
   chatThread=defaultThread||'customer-admin';
   renderChatModal();
   openModal('modal-chat');
+  if(role==='customer') markSeen('cHistory');
+  else if(role==='driver') markSeen('dActive');
 }
 
 function switchChatThread(thread){ chatThread=thread; renderChatModal(); }
@@ -1902,8 +2045,13 @@ document.querySelector('#screen-customer .topbar button[onclick="openModal(\'mod
 
 cUpdateOrderType();
 updateBrandingUI();
+loadSeen();
 document.querySelectorAll('.screen').forEach(s=>{ s.dataset.disp = s.style.display || 'block'; });
 if(!restoreAppState()) showScreen('landing');
+updateNotifications();
+// Unlock audio playback on first user interaction (autoplay policies block
+// sound until the user has tapped/clicked at least once).
+document.addEventListener('click', ()=>{ if(audioCtx&&audioCtx.state==='suspended') audioCtx.resume(); }, {once:true});
 </script>
 </body>
 </html>
