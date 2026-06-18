@@ -456,7 +456,9 @@ try{
       });
       chats=newChats;
       if(document.getElementById('modal-chat')?.classList.contains('open')) renderChatMessages();
-      updateNotifications();
+      if(document.getElementById('c-tab-chatadmin')?.style.display==='block') renderDirectChat();
+      if(document.getElementById('a-tab-orders')?.style.display==='block') aRenderOrders();
+      refreshActiveScreen();
     }, err=>console.error('Firebase chats:', err));
 
     // SETTINGS — branding & tarif; applied to all clients instantly
